@@ -45,6 +45,13 @@ target_include_directories(YomitanMPV PRIVATE
     src
     ${CMAKE_CURRENT_BINARY_DIR}/generated/src
 )
+
+# for macOS, homebrew doesn't set the correct value for libmpv's location, causing a link error.
+# set LIBMPV_OVERRIDE to the correct libmpv.2.dylib (usually /opt/homebrew/Cellar/mpv/{VERSION_HERE}/lib/libmpv.2.dylib)
+if (LIBMPV_OVERRIDE)
+    set(MPV_LIBRARIES ${LIBMPV_OVERRIDE})
+endif ()
+
 target_link_libraries(YomitanMPV PRIVATE
         ${MPV_LIBRARIES}
         spdlog::spdlog
@@ -59,6 +66,12 @@ target_link_libraries(YomitanMPV PRIVATE
 set_target_properties(YomitanMPV PROPERTIES
     PREFIX ""
 )
+
+if (APPLE)
+    set_target_properties(YomitanMPV PROPERTIES
+            SUFFIX ".so"
+    )
+endif ()
 
 if (COPY_BUILD_TO_MPV_SCRIPTS)
     add_custom_command(TARGET YomitanMPV POST_BUILD
