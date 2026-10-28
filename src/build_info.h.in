@@ -1,0 +1,5 @@
+#pragma once
+
+inline constexpr auto PLUGIN_NAME = "@PROJECT_NAME@";
+inline constexpr auto PLUGIN_AUTHOR = "@PROJECT_AUTHOR@";
+inline constexpr auto PLUGIN_VERSION = "@PROJECT_VERSION@";
