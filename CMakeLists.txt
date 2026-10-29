@@ -38,6 +38,8 @@ add_library(YomitanMPV SHARED
         src/util/util.h
         src/util/config.cpp
         src/util/config.h
+        src/network/network.cpp
+        src/network/network.h
 )
 
 target_include_directories(YomitanMPV PRIVATE
@@ -46,14 +48,13 @@ target_include_directories(YomitanMPV PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR}/generated/src
 )
 
-# for macOS, homebrew doesn't set the correct value for libmpv's location, causing a link error.
-# set LIBMPV_OVERRIDE to the correct libmpv.2.dylib (usually /opt/homebrew/Cellar/mpv/{VERSION_HERE}/lib/libmpv.2.dylib)
-if (LIBMPV_OVERRIDE)
-    set(MPV_LIBRARIES ${LIBMPV_OVERRIDE})
-endif ()
+if(APPLE)
+    target_link_options(YomitanMPV PRIVATE
+            "-Wl,-undefined,dynamic_lookup"
+    )
+endif()
 
 target_link_libraries(YomitanMPV PRIVATE
-        ${MPV_LIBRARIES}
         spdlog::spdlog
         CURL::libcurl
         nlohmann_json::nlohmann_json

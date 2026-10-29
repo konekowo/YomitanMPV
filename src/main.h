@@ -7,6 +7,7 @@
 #include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
+#include "network/network.h"
 #include "util/config.h"
 #include "util/util.h"
 
@@ -19,6 +20,7 @@ namespace YomitanMPV {
         std::shared_ptr<Util> util;
         std::shared_ptr<Config> config;
         std::shared_ptr<spdlog::logger> logger;
+        std::shared_ptr<Network> network;
     };
 }
 
