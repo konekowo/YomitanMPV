@@ -21,5 +21,17 @@ namespace YomitanMPV {
         this->config = std::make_shared<Config>(mpv_ctx, logger, util);
 
         logger->info("{} ({}) Loaded!", PLUGIN_NAME, PLUGIN_VERSION);
+
+        while(true) {
+            const mpv_event *event = mpv_wait_event(mpv_ctx, -1);
+
+            if (event->event_id == MPV_EVENT_NONE) {
+                continue;
+            }
+
+            if (event->event_id == MPV_EVENT_SHUTDOWN) {
+                break;
+            }
+        }
     }
 }
