@@ -40,15 +40,27 @@ namespace YomitanMPV {
                 break;
             }
 
+            if (event->event_id == MPV_EVENT_CLIENT_MESSAGE) {
+                auto *msg = static_cast<mpv_event_client_message *>(event->data);
+
+                if (msg->num_args > 0) {
+                    if (std::string(msg->args[0]).compare(0, std::string("keybind_").length(), "keybind_") == 0) {
+                        util->keybind_event_poll(msg);
+                    }
+                }
+            }
+
             if (event->event_id == MPV_EVENT_PROPERTY_CHANGE) {
                 const auto *prop = static_cast<mpv_event_property *>(event->data);
 
                 if (event->reply_userdata == 1) {
-                    if (prop->format == MPV_FORMAT_INT64 && prop->data) {
+                    if (std::string(prop->name) == "sid" && prop->format == MPV_FORMAT_INT64 && prop->data) {
                         const int64_t sid = *static_cast<int64_t *>(prop->data);
 
-                        logger->info("Subtitles set to {}", util->get_subtitle_language(sid));
-                        
+                        std::string lang = util->get_subtitle_language(sid);
+
+                        logger->info("Subtitles set to {}", lang);
+                        is_enabled = lang == "ja";
 
                     }
                 }

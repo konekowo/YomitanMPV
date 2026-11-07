@@ -21,6 +21,8 @@ namespace YomitanMPV {
         std::shared_ptr<Config> config;
         std::shared_ptr<spdlog::logger> logger;
         std::shared_ptr<Network> network;
+    private:
+        bool is_enabled;
     };
 }
 

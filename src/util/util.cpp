@@ -72,4 +72,36 @@ namespace YomitanMPV {
 
         mpv_command(mpv_ctx, cmd);
     }
+
+    void Util::register_keybind(const std::string &keybind, const std::string &name, const std::function<void(std::string[])>& callback) {
+        const char *client_name = mpv_client_name(mpv_ctx);
+
+        const std::string command = "script-message-to " + std::string(client_name) + " keybind_" + name;
+
+        const char *args[] = {
+            "keybind",
+            keybind.c_str(),
+            command.c_str(),
+            nullptr
+        };
+
+        mpv_command(mpv_ctx, args);
+
+        keybinds[name] = callback;
+    }
+
+    void Util::keybind_event_poll(const mpv_event_client_message *message) {
+        const std::string keybind_name = std::string(message->args[0]).substr(std::string("keybind_").length());
+
+        std::string args[message->num_args - 1];
+
+        for (int i = 1; i < message->num_args; i++) {
+            args[i - 1] = std::string(message->args[i]);
+        }
+
+        if (keybinds.find(keybind_name) != keybinds.end()) {
+            keybinds[keybind_name](args);
+        }
+
+    }
 }
