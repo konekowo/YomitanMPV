@@ -106,8 +106,6 @@ namespace YomitanMPV {
             command += keybind + " script-message-to " + std::string(client_name) + " lock_keybind_" + name;
         }
 
-        logger->info(command);
-
         const char *define[] = {
             "define-section",
             lock_name.c_str(),

@@ -2,6 +2,7 @@
 
 #include <future>
 #include <memory>
+#include <queue>
 #include <spdlog/logger.h>
 #include <curl/curl.h>
 
