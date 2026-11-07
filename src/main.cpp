@@ -29,6 +29,23 @@ namespace YomitanMPV {
 
         mpv_observe_property(mpv_ctx, 1, "sid", MPV_FORMAT_INT64);
 
+        util->register_keybind(config->config.keybinds.lookup, "lookup", [this](std::string[]) {
+            util->lock_controls("lookup_lock");
+
+            int paused = 1;
+            mpv_set_property(this->mpv_ctx, "pause", MPV_FORMAT_FLAG, &paused);
+        });
+
+        auto lookup_end_func = [this](std::string[]) {
+            util->unlock_controls("lookup_lock");
+
+            int paused = 0;
+            mpv_set_property(this->mpv_ctx, "pause", MPV_FORMAT_FLAG, &paused);
+        };
+
+        util->register_lock_keybind("lookup_lock", config->config.keybinds.lookup, "lookup_end", lookup_end_func);
+        util->register_lock_keybind("lookup_lock", "ESC", "lookup_end", lookup_end_func);
+
         while(true) {
             const mpv_event *event = mpv_wait_event(mpv_ctx, -1);
 
@@ -46,6 +63,9 @@ namespace YomitanMPV {
                 if (msg->num_args > 0) {
                     if (std::string(msg->args[0]).compare(0, std::string("keybind_").length(), "keybind_") == 0) {
                         util->keybind_event_poll(msg);
+                    }
+                    if (std::string(msg->args[0]).compare(0, std::string("lock_keybind_").length(), "lock_keybind_") == 0) {
+                        util->lock_keybind_event_poll(msg);
                     }
                 }
             }

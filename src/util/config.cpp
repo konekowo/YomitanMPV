@@ -31,7 +31,7 @@ namespace YomitanMPV {
                 file >> json;
                 file.close();
 
-                json.get_to(*this);
+                json.get_to(config);
             } else {
                 std::ofstream file(config_path);
 
@@ -41,7 +41,7 @@ namespace YomitanMPV {
 
                 file.exceptions(std::ios::badbit);
 
-                file << nlohmann::json(*this).dump(4);
+                file << nlohmann::json(config).dump(4);
                 file.close();
 
                 if (!file) {

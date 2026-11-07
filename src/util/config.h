@@ -10,11 +10,22 @@
 namespace YomitanMPV {
     class Config {
     public:
+        struct Keybinds {
+            std::string lookup = "p";
+
+            NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(Keybinds, lookup);
+        };
+
+        struct Configuration {
+            std::string yomitan_api_url{"http://127.0.0.1:19633"};
+            Keybinds keybinds;
+
+            NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(Configuration, yomitan_api_url, keybinds);
+        };
+
+        Configuration config;
+
         Config(mpv_handle *mpv_ctx, const std::shared_ptr<spdlog::logger> &logger, const std::shared_ptr<Util> &util);
-
-        std::string yomitan_api_url{"http://127.0.0.1:19633"};
-
-        NLOHMANN_DEFINE_TYPE_INTRUSIVE(Config, yomitan_api_url);
     private:
         mpv_handle *mpv_ctx;
         std::shared_ptr<spdlog::logger> logger;
