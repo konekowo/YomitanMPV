@@ -29,22 +29,16 @@ namespace YomitanMPV {
 
         mpv_observe_property(mpv_ctx, 1, "sid", MPV_FORMAT_INT64);
 
-        util->register_keybind(config->config.keybinds.lookup, "lookup", [this](std::string[]) {
-            util->lock_controls("lookup_lock");
-
-            int paused = 1;
-            mpv_set_property(this->mpv_ctx, "pause", MPV_FORMAT_FLAG, &paused);
+        util->register_keybind(config->config.keybinds.select_mode, "select_mode", [this](std::string[]) {
+            enter_select_mode();
         });
 
-        auto lookup_end_func = [this](std::string[]) {
-            util->unlock_controls("lookup_lock");
-
-            int paused = 0;
-            mpv_set_property(this->mpv_ctx, "pause", MPV_FORMAT_FLAG, &paused);
-        };
-
-        util->register_lock_keybind("lookup_lock", config->config.keybinds.lookup, "lookup_end", lookup_end_func);
-        util->register_lock_keybind("lookup_lock", "ESC", "lookup_end", lookup_end_func);
+        util->register_lock_keybind("select_mode_lock", config->config.keybinds.select_mode, "select_mode_end", [this](std::string[]) {
+            exit_select_mode();
+        });
+        util->register_lock_keybind("select_mode_lock", "ESC", "select_mode_end", [this](std::string[]) {
+            exit_select_mode();
+        });
 
         while(true) {
             const mpv_event *event = mpv_wait_event(mpv_ctx, -1);
@@ -86,5 +80,66 @@ namespace YomitanMPV {
                 }
             }
         }
+    }
+
+    template <typename T, typename F>
+    static void on_done(std::future<T> future, F callback) {
+        std::thread([f = std::move(future), cb = std::move(callback)]() mutable {
+            T result = f.get();
+            cb(result);
+        }).detach();
+    }
+
+    void Context::enter_select_mode() {
+        util->lock_controls("select_mode_lock");
+
+        int paused = 1;
+        mpv_set_property(this->mpv_ctx, "pause", MPV_FORMAT_FLAG, &paused);
+        util->set_subs_visible(false);
+
+        select_mode = true;
+
+        std::string line = util->get_current_subtitle_line();
+
+        if (line.empty()) {
+            util->osd_show_text("There are no subtitles to select.", std::chrono::seconds(5));
+
+            exit_select_mode();
+            return;
+        }
+
+        util->add_text(0, "Tokenizing...", 0, 0);
+
+        on_done(network->fetch(
+            Network::HttpRequest()
+                .url(config->config.yomitan_api_url + "/tokenize")
+                .method(Network::POST)
+                .body({
+                    {"text", line},
+                    {"scanLength", line.length()}
+                })
+        ), [this, line](const Network::HttpResponse& response) {
+            if (!select_mode)
+                return;
+
+            if (util->get_current_subtitle_line() != line)
+                return;
+
+            util->remove_overlay(0);
+        });
+
+
+    }
+
+    void Context::exit_select_mode() {
+        select_mode = false;
+
+        util->remove_overlay(0);
+
+        util->unlock_controls("select_mode_lock");
+
+        int paused = 0;
+        mpv_set_property(this->mpv_ctx, "pause", MPV_FORMAT_FLAG, &paused);
+        util->set_subs_visible(true);
     }
 }

@@ -20,6 +20,11 @@ namespace YomitanMPV {
         void lock_keybind_event_poll(const mpv_event_client_message *message);
         void lock_controls(const std::string& lock_name) const;
         void unlock_controls(const std::string& lock_name) const;
+        void set_subs_visible(bool value) const;
+        [[nodiscard]] std::string get_current_subtitle_line() const;
+
+        void add_text(int id, const std::string& text, int x, int y) const;
+        void remove_overlay(int id) const;
     private:
         mpv_handle *mpv_ctx;
         std::shared_ptr<spdlog::logger> logger;

@@ -23,6 +23,10 @@ namespace YomitanMPV {
         std::shared_ptr<Network> network;
     private:
         bool is_enabled;
+
+        bool select_mode;
+        void enter_select_mode();
+        void exit_select_mode();
     };
 }
 

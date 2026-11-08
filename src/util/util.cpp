@@ -1,5 +1,8 @@
 #include "util.h"
 
+const std::string OVERLAY_VIRTUAL_WIDTH = std::to_string(1920);
+const std::string OVERLAY_VIRTUAL_HEIGHT = std::to_string(1080);
+
 namespace YomitanMPV {
     Util::Util(mpv_handle *mpv_ctx, const std::shared_ptr<spdlog::logger>& logger) {
         this->mpv_ctx = mpv_ctx;
@@ -167,5 +170,61 @@ namespace YomitanMPV {
         };
 
         mpv_command(mpv_ctx, disable);
+    }
+
+    void Util::set_subs_visible(const bool value) const {
+        const char *cmd[] = {
+            "set",
+            "sub-visibility",
+            value ? "yes" : "no",
+            nullptr
+        };
+
+        mpv_command(mpv_ctx, cmd);
+    }
+
+    std::string Util::get_current_subtitle_line() const {
+        char *mpv_sub_text;
+
+        if (mpv_get_property(this->mpv_ctx, "sub-text", MPV_FORMAT_STRING, &mpv_sub_text) < 0)
+            throw std::runtime_error("Failed to get subtitle line!");
+
+        auto sub_text = std::string(mpv_sub_text);
+
+        mpv_free(mpv_sub_text);
+
+        return sub_text;
+    }
+
+    void Util::add_text(const int id, const std::string& text, const int x, const int y) const {
+        const std::string id_str = std::to_string(id);
+
+        const std::string ass_event = "{\\an7\\pos(" + std::to_string(x) + "," + std::to_string(y) + ")\\fs48\\c&HFFFFFF&}" + text;
+
+        const char *cmd[] = {
+            "osd-overlay",
+            id_str.c_str(),
+            "ass-events",
+            ass_event.c_str(),
+            OVERLAY_VIRTUAL_WIDTH.c_str(),
+            OVERLAY_VIRTUAL_HEIGHT.c_str(),
+            nullptr
+        };
+
+        mpv_command(mpv_ctx, cmd);
+    }
+
+    void Util::remove_overlay(const int id) const {
+        const std::string id_str = std::to_string(id);
+
+        const char *cmd[] = {
+            "osd-overlay",
+            id_str.c_str(),
+            "none",
+            "",
+            nullptr
+        };
+
+        mpv_command(mpv_ctx, cmd);
     }
 }

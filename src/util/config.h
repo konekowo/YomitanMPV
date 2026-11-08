@@ -11,9 +11,9 @@ namespace YomitanMPV {
     class Config {
     public:
         struct Keybinds {
-            std::string lookup = "p";
+            std::string select_mode = "p";
 
-            NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(Keybinds, lookup);
+            NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(Keybinds, select_mode);
         };
 
         struct Configuration {
