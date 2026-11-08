@@ -196,22 +196,55 @@ namespace YomitanMPV {
         return sub_text;
     }
 
-    void Util::add_text(const int id, const std::string& text, const int x, const int y) const {
-        const std::string id_str = std::to_string(id);
+    int Util::add_overlay_event(const std::string& overlay_event, Bounds *bounds, const bool hidden) {
+        const int id = current_event_id++;
 
-        const std::string ass_event = "{\\an7\\pos(" + std::to_string(x) + "," + std::to_string(y) + ")\\fs48\\c&HFFFFFF&}" + text;
+        const std::string id_str = std::to_string(id);
 
         const char *cmd[] = {
             "osd-overlay",
             id_str.c_str(),
             "ass-events",
-            ass_event.c_str(),
+            overlay_event.c_str(),
             OVERLAY_VIRTUAL_WIDTH.c_str(),
             OVERLAY_VIRTUAL_HEIGHT.c_str(),
+            "0",
+            hidden ? "yes" : "no",
+            bounds ? "yes" : "no",
             nullptr
         };
 
-        mpv_command(mpv_ctx, cmd);
+        if (bounds) {
+            mpv_node result{};
+
+            mpv_command_ret(mpv_ctx, cmd, &result);
+
+            if (result.format == MPV_FORMAT_NODE_MAP) {
+                for (int i = 0; i < result.u.list->num; ++i) {
+                    double* target = nullptr;
+
+                    if (!strcmp(result.u.list->keys[i], "x0")) target = &bounds->x0;
+                    else if (!strcmp(result.u.list->keys[i], "y0")) target = &bounds->y0;
+                    else if (!strcmp(result.u.list->keys[i], "x1")) target = &bounds->x1;
+                    else if (!strcmp(result.u.list->keys[i], "y1")) target = &bounds->y1;
+
+                    if (!target)
+                        continue;
+
+                    if (result.u.list->values[i].format == MPV_FORMAT_DOUBLE) {
+                        *target = result.u.list->values[i].u.double_;
+                    } else if (result.u.list->values[i].format == MPV_FORMAT_INT64) {
+                        *target = static_cast<double>(result.u.list->values[i].u.int64);
+                    }
+                }
+            }
+
+            mpv_free_node_contents(&result);
+        } else {
+            mpv_command(mpv_ctx, cmd);
+        }
+
+        return id;
     }
 
     void Util::remove_overlay(const int id) const {
@@ -226,5 +259,120 @@ namespace YomitanMPV {
         };
 
         mpv_command(mpv_ctx, cmd);
+    }
+
+    std::vector<int> Util::add_broken_up_text(const std::vector<std::string>& text) {
+        std::vector<int> ids;
+
+        ids.reserve(text.size());
+
+        int start_y = 0;
+
+        std::vector<std::vector<std::string>> lines;
+
+        {
+            std::vector<std::string> line;
+            for (const auto & segment : text) {
+                line.push_back(segment);
+
+                if (segment == "\n") {
+                    start_y += 48;
+
+                    lines.push_back(line);
+                    line.clear();
+                }
+            }
+
+            if (!line.empty())
+                lines.push_back(line);
+        }
+
+        std::vector<std::vector<Bounds>> lines_widths;
+        for (const auto & line : lines) {
+            std::vector<Bounds> widths;
+
+            for (const auto& segment : line) {
+                Bounds bounds{};
+
+                int id = add_overlay_event(
+                    OverlayBuilder()
+                        .type(TEXT)
+                        .text(segment)
+                        .anchor(TOP_LEFT)
+                        .x(0)
+                        .y(0)
+                        .build(),
+                    &bounds,
+                    true
+                );
+
+                remove_overlay(id);
+
+                widths.push_back(bounds);
+            }
+
+            lines_widths.push_back(widths);
+        }
+
+        std::vector<double> widths;
+
+        for (const auto & line : lines_widths) {
+            double width = 0;
+
+            for (auto segment : line) {
+                width += segment.width();
+            }
+
+            widths.push_back(width);
+        }
+
+        for (int i = 0; i < lines.size(); i++) {
+            double width = widths[i];
+            const std::vector<Bounds>& line_bounds = lines_widths[i];
+            const std::vector<std::string>& line = lines[i];
+
+            double x_pos = 0;
+
+            for (int j = 0; j < line.size(); ++j) {
+                std::string segment = line[j];
+                Bounds bounds = line_bounds[j];
+
+                ids.push_back(
+                    add_overlay_event(
+                        OverlayBuilder()
+                            .type(TEXT)
+                            .text(segment)
+                            .anchor(BOTTOM_CENTER)
+                            .x(static_cast<int>(1920 / 2.0f - width / 2.0f + x_pos))
+                            .y(1080 - (start_y + 15))
+                            .build()
+                    )
+                );
+
+                x_pos += bounds.width();
+            }
+
+            start_y -= 48;
+        }
+        return ids;
+    }
+
+    std::string OverlayBuilder::build() const {
+        std::string result = "{";
+
+        result.append("\\an").append(std::to_string(_anchor));
+        result.append("\\pos(").append(std::to_string(_x)).append(",").append(std::to_string(_y)).append(")");
+        result.append("\\1c&H").append(_fill_color).append("&");
+        result.append("\\3c&H").append(_outline_color).append("&");
+
+        if (_type == TEXT)
+            result.append("\\fs").append(std::to_string(_font_size));
+
+        result.append("}");
+
+        if (_type == TEXT)
+            result.append(_text);
+
+        return result;
     }
 }

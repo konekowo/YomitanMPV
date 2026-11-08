@@ -25,6 +25,8 @@ namespace YomitanMPV {
         bool is_enabled;
 
         bool select_mode;
+        int ui_title;
+        int ui_tokenizing;
         void enter_select_mode();
         void exit_select_mode();
     };

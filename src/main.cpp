@@ -102,13 +102,30 @@ namespace YomitanMPV {
         std::string line = util->get_current_subtitle_line();
 
         if (line.empty()) {
-            util->osd_show_text("There are no subtitles to select.", std::chrono::seconds(5));
+            util->osd_show_text("There are no subtitles to select.", std::chrono::seconds(2));
 
             exit_select_mode();
             return;
         }
 
-        util->add_text(0, "Tokenizing...", 0, 0);
+        ui_title = util->add_overlay_event(
+            OverlayBuilder()
+                .type(TEXT)
+                .anchor(TOP_RIGHT)
+                .text("Select Mode (Press ESC or '" + config->config.keybinds.select_mode + "' to exit)")
+                .x(1905)
+                .y(15)
+                .build()
+        );
+
+        ui_tokenizing = util->add_overlay_event(
+            OverlayBuilder()
+                .type(TEXT)
+                .text("Tokenizing...")
+                .x(15)
+                .y(15)
+                .build()
+        );
 
         on_done(network->fetch(
             Network::HttpRequest()
@@ -118,14 +135,32 @@ namespace YomitanMPV {
                     {"text", line},
                     {"scanLength", line.length()}
                 })
-        ), [this, line](const Network::HttpResponse& response) {
+        ), [this, line](Network::HttpResponse response) {
             if (!select_mode)
                 return;
 
             if (util->get_current_subtitle_line() != line)
                 return;
 
-            util->remove_overlay(0);
+            if (!response.is_ok()) {
+                util->osd_show_text("Failed to tokenize!", std::chrono::seconds(2));
+                exit_select_mode();
+
+                return;
+            }
+
+            util->remove_overlay(ui_tokenizing);
+
+            nlohmann::json json = response.json();
+
+            std::vector<std::string> segments;
+
+            for (auto segment : json.at(0)["content"]) {
+                segments.push_back(segment.at(0)["text"]);
+                logger->info(segment.at(0)["text"]);
+            }
+
+            util->add_broken_up_text(segments);
         });
 
 
@@ -134,7 +169,8 @@ namespace YomitanMPV {
     void Context::exit_select_mode() {
         select_mode = false;
 
-        util->remove_overlay(0);
+        util->remove_overlay(ui_tokenizing);
+        util->remove_overlay(ui_title);
 
         util->unlock_controls("select_mode_lock");
 
