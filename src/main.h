@@ -27,6 +27,7 @@ namespace YomitanMPV {
         bool select_mode;
         int ui_title;
         int ui_tokenizing;
+        std::vector<int> ui_text_segments;
         void enter_select_mode();
         void exit_select_mode();
     };

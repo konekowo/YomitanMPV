@@ -160,7 +160,7 @@ namespace YomitanMPV {
                 logger->info(segment.at(0)["text"]);
             }
 
-            util->add_broken_up_text(segments);
+            ui_text_segments = util->add_broken_up_text(segments);
         });
 
 
@@ -171,6 +171,9 @@ namespace YomitanMPV {
 
         util->remove_overlay(ui_tokenizing);
         util->remove_overlay(ui_title);
+        for (int ui_text_segment : ui_text_segments) {
+            util->remove_overlay(ui_text_segment);
+        }
 
         util->unlock_controls("select_mode_lock");
 

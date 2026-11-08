@@ -276,7 +276,7 @@ namespace YomitanMPV {
                 line.push_back(segment);
 
                 if (segment == "\n") {
-                    start_y += 48;
+                    start_y += 62;
 
                     lines.push_back(line);
                     line.clear();
@@ -301,6 +301,7 @@ namespace YomitanMPV {
                         .anchor(TOP_LEFT)
                         .x(0)
                         .y(0)
+                        .font_size(62)
                         .build(),
                     &bounds,
                     true
@@ -342,9 +343,10 @@ namespace YomitanMPV {
                         OverlayBuilder()
                             .type(TEXT)
                             .text(segment)
-                            .anchor(BOTTOM_CENTER)
+                            .anchor(TOP_LEFT)
                             .x(static_cast<int>(1920 / 2.0f - width / 2.0f + x_pos))
-                            .y(1080 - (start_y + 15))
+                            .y(1080 - (start_y + 85))
+                            .font_size(62)
                             .build()
                     )
                 );
