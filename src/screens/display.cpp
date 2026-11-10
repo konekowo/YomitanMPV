@@ -126,8 +126,44 @@ namespace YomitanMPV {
 
                         break;
                     }
-                    case CLAY_RENDER_COMMAND_TYPE_BORDER:
+                    case CLAY_RENDER_COMMAND_TYPE_BORDER: {
+                        const auto data = command->renderData.border;
+
+                        ass_event.append("{");
+                        ass_event.append("\\an7");
+                        ass_event.append("\\pos(").append(std::to_string(bounding_box.x)).append(",").append(std::to_string(bounding_box.y)).append(")");
+                        ass_event.append("\\bord0");
+                        ass_event.append("\\shad0");
+                        ass_event.append("\\1c").append(color_to_ass_hex(data.color));
+                        ass_event.append("\\1a").append(alpha_to_ass_hex(data.color.a));
+                        ass_event.append("\\p1");
+                        ass_event.append("}");
+
+                        auto append_rect = [&](const float x0, const float y0, const float x1, const float y1) {
+                            if (x0 >= x1 || y0 >= y1)
+                                return;
+
+                            ass_event.append(" m ")
+                                .append(std::to_string(x0)).append(" ")
+                                .append(std::to_string(y0)).append(" l ")
+                                .append(std::to_string(x1)).append(" ")
+                                .append(std::to_string(y0)).append(" ")
+                                .append(std::to_string(x1)).append(" ")
+                                .append(std::to_string(y1)).append(" ")
+                                .append(std::to_string(x0)).append(" ")
+                                .append(std::to_string(y1));
+                        };
+
+                        append_rect(0, 0, bounding_box.width, data.width.top);
+                        append_rect(bounding_box.width - static_cast<float>(data.width.right),
+                            data.width.top, bounding_box.width, bounding_box.height - static_cast<float>(data.width.bottom));
+                        append_rect(0, bounding_box.height - static_cast<float>(data.width.bottom), bounding_box.width, bounding_box.height);
+                        append_rect(0, data.width.top, data.width.left, bounding_box.height - static_cast<float>(data.width.bottom));
+
+                        ass_event.append("{\\p0}");
+
                         break;
+                    }
                     case CLAY_RENDER_COMMAND_TYPE_TEXT: {
                         const auto data = command->renderData.text;
 
