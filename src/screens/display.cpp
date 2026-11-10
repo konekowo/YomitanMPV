@@ -47,8 +47,6 @@ namespace YomitanMPV {
 
         Clay_SetLayoutDimensions({ .width = static_cast<float>(width), .height = static_cast<float>(height) });
 
-        font_id_map[0] = "Arial";
-
         mpv_observe_property(mpv_ctx, 0, "osd-width", MPV_FORMAT_INT64);
         mpv_observe_property(mpv_ctx, 0, "osd-height", MPV_FORMAT_INT64);
 
@@ -205,7 +203,7 @@ namespace YomitanMPV {
 
                         if (const auto entry = font_id_map.find(data.fontId); entry != font_id_map.end()) {
                             ass_event.append("\\fn").append(entry->second);
-                        } else {
+                        } else if (data.fontId != 0) {
                             logger->warn("[Display] Invalid font id: {}", data.fontId);
                         }
 
@@ -317,7 +315,7 @@ namespace YomitanMPV {
 
         if (const auto entry = font_id_map.find(config->fontId); entry != font_id_map.end()) {
             ass_event_styling.append("\\fn").append(entry->second);
-        } else {
+        } else if (config->fontId != 0) {
             logger->warn("[Display] Invalid font id: {}", config->fontId);
         }
 
