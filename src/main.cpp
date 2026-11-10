@@ -48,7 +48,7 @@ namespace YomitanMPV {
         });
 
         while(true) {
-            const mpv_event *event = mpv_wait_event(mpv_ctx, 0);
+            const mpv_event *event = mpv_wait_event(mpv_ctx, network->is_active() ? 0.1 : -1);
 
             display->poll(event);
 

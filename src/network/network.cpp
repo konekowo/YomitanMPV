@@ -103,6 +103,10 @@ namespace YomitanMPV {
         return future;
     }
 
+    bool Network::is_active() const {
+        return !active.empty();
+    }
+
     size_t Network::writeCallback(
         const char* data,
         const size_t size,

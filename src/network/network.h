@@ -58,6 +58,8 @@ namespace YomitanMPV {
         ~Network();
 
         std::future<HttpResponse> fetch(const HttpRequest &http_request);
+
+        bool is_active() const;
     private:
         struct Request {
             std::string url;
