@@ -295,6 +295,9 @@ namespace YomitanMPV {
         if (current_screen) {
             current_screen->set_draw_cb([this] { draw(); });
             current_screen->init();
+            current_screen->set_scale(scale);
+            current_screen->set_width(width);
+            current_screen->set_height(height);
         }
 
         draw();
