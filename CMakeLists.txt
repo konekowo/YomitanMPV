@@ -6,7 +6,7 @@ project(YomitanMPV)
 
 option(COPY_BUILD_TO_MPV_SCRIPTS "Copy build to ~/.config/mpv/scripts" OFF)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(PROJECT_NAME "YomitanMPV")
@@ -40,6 +40,13 @@ add_library(YomitanMPV SHARED
         src/util/config.h
         src/network/network.cpp
         src/network/network.h
+        src/screens/clay.h
+        src/screens/display.cpp
+        src/screens/display.h
+        src/screens/screen.cpp
+        src/screens/screen.h
+        src/screens/impl/select_screen.cpp
+        src/screens/impl/select_screen.h
 )
 
 target_include_directories(YomitanMPV PRIVATE

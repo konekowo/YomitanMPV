@@ -2,6 +2,7 @@
 
 #include "spdlog/spdlog.h"
 #include "build_info.h"
+#include "screens/impl/select_screen.h"
 
 extern "C" {
 int mpv_open_cplugin(mpv_handle *handle) {
@@ -24,24 +25,30 @@ namespace YomitanMPV {
         this->util = std::make_shared<Util>(mpv_ctx, logger);
         this->config = std::make_shared<Config>(mpv_ctx, logger, util);
         this->network = std::make_shared<Network>(logger);
+        this->display = std::make_shared<Display>(mpv_ctx, logger);
 
         logger->info("{} ({}) Loaded!", PLUGIN_NAME, PLUGIN_VERSION);
 
-        mpv_observe_property(mpv_ctx, 1, "sid", MPV_FORMAT_INT64);
+        mpv_observe_property(mpv_ctx, 0, "sid", MPV_FORMAT_INT64);
 
-        util->register_keybind(config->config.keybinds.select_mode, "select_mode", [this](std::string[]) {
-            enter_select_mode();
-        });
+        auto select_screen = std::make_shared<SelectScreen>(
+            mpv_ctx,
+            logger,
+            display,
+            config,
+            util,
+            network
+        );
 
-        util->register_lock_keybind("select_mode_lock", config->config.keybinds.select_mode, "select_mode_end", [this](std::string[]) {
-            exit_select_mode();
-        });
-        util->register_lock_keybind("select_mode_lock", "ESC", "select_mode_end", [this](std::string[]) {
-            exit_select_mode();
+        util->register_keybind(config->config.keybinds.select_mode, "select_mode", [this, select_screen](std::string[]) {
+            //enter_select_mode();
+            display->set_current_screen(select_screen);
         });
 
         while(true) {
-            const mpv_event *event = mpv_wait_event(mpv_ctx, -1);
+            const mpv_event *event = mpv_wait_event(mpv_ctx, 0);
+
+            display->poll(event);
 
             if (event->event_id == MPV_EVENT_NONE) {
                 continue;
@@ -67,16 +74,13 @@ namespace YomitanMPV {
             if (event->event_id == MPV_EVENT_PROPERTY_CHANGE) {
                 const auto *prop = static_cast<mpv_event_property *>(event->data);
 
-                if (event->reply_userdata == 1) {
-                    if (std::string(prop->name) == "sid" && prop->format == MPV_FORMAT_INT64 && prop->data) {
-                        const int64_t sid = *static_cast<int64_t *>(prop->data);
+                if (std::string(prop->name) == "sid" && prop->format == MPV_FORMAT_INT64 && prop->data) {
+                    const int64_t sid = *static_cast<int64_t *>(prop->data);
 
-                        std::string lang = util->get_subtitle_language(sid);
+                    std::string lang = util->get_subtitle_language(sid);
 
-                        logger->info("Subtitles set to {}", lang);
-                        is_enabled = lang == "ja";
-
-                    }
+                    logger->info("Subtitles set to {}", lang);
+                    is_enabled = lang == "ja";
                 }
             }
         }

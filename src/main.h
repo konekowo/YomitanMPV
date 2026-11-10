@@ -9,6 +9,7 @@
 
 #include "network/network.h"
 #include "util/config.h"
+#include "screens/display.h"
 #include "util/util.h"
 
 namespace YomitanMPV {
@@ -21,6 +22,7 @@ namespace YomitanMPV {
         std::shared_ptr<Config> config;
         std::shared_ptr<spdlog::logger> logger;
         std::shared_ptr<Network> network;
+        std::shared_ptr<Display> display;
     private:
         bool is_enabled;
 
