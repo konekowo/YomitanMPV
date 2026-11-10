@@ -13,13 +13,22 @@ namespace YomitanMPV {
     )
         : Screen(mpv_ctx, logger, util), network(network), util(util), display(display), config(config)
     {
-        util->register_lock_keybind("select_mode_lock", config->config.keybinds.select_mode, "select_mode_end", [display](std::string[]) {
+        util->register_lock_keybind("select_mode_lock", config->config.keybinds.select_mode, "select_mode_end", [display](std::string args[]) {
+            if (args[0][0] != 'd')
+                return;
+
             display->set_current_screen(nullptr);
         });
-        util->register_lock_keybind("select_mode_lock", "ESC", "select_mode_end", [display](std::string[]) {
+        util->register_lock_keybind("select_mode_lock", "ESC", "select_mode_end", [display](std::string args[]) {
+            if (args[0][0] != 'd')
+                return;
+
             display->set_current_screen(nullptr);
         });
-        util->register_lock_keybind("select_mode_lock", "F12", "select_mode_devtools", [this](std::string[]) {
+        util->register_lock_keybind("select_mode_lock", "F12", "select_mode_devtools", [this](std::string args[]) {
+            if (args[0][0] != 'd')
+                return;
+
             Clay_SetDebugModeEnabled(true);
             if (draw)
                 draw();
@@ -54,9 +63,6 @@ namespace YomitanMPV {
         tokenizing = true;
         status = "Tokenizing...";
         status_is_error = false;
-
-        logger->debug(line);
-        logger->debug(line.length());
 
         tokenize_request = network->fetch(
             Network::HttpRequest()

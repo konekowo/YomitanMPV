@@ -79,7 +79,7 @@ namespace YomitanMPV {
     void Util::register_keybind(const std::string &keybind, const std::string &name, const std::function<void(std::string[])>& callback) {
         const char *client_name = mpv_client_name(mpv_ctx);
 
-        const std::string command = "script-message-to " + std::string(client_name) + " keybind_" + name;
+        const std::string command = "script-binding " + std::string(client_name) + "/keybind_" + name;
 
         const char *args[] = {
             "keybind",
@@ -99,14 +99,14 @@ namespace YomitanMPV {
         std::string command;
 
         if (!lock_keybinds.contains(lock_name)) {
-            command = keybind + " script-message-to " + std::string(client_name) + " lock_keybind_" + name;
+            command = keybind + " script-binding " + std::string(client_name) + "/lock_keybind_" + name;
             lock_keybinds[lock_name] = std::vector<std::pair<std::string, std::string>>();
         } else {
             for (const auto& lock_keybind : lock_keybinds[lock_name]) {
-                command += lock_keybind.second + " script-message-to " + std::string(client_name) + " lock_keybind_" + lock_keybind.first + "\n";
+                command += lock_keybind.second + " script-binding " + std::string(client_name) + "/lock_keybind_" + lock_keybind.first + "\n";
             }
 
-            command += keybind + " script-message-to " + std::string(client_name) + " lock_keybind_" + name;
+            command += keybind + " script-binding " + std::string(client_name) + "/lock_keybind_" + name;
         }
 
         const char *define[] = {
@@ -124,12 +124,12 @@ namespace YomitanMPV {
     }
 
     void Util::keybind_event_poll(const mpv_event_client_message *message) {
-        const std::string keybind_name = std::string(message->args[0]).substr(std::string("keybind_").length());
+        const std::string keybind_name = std::string(message->args[1]).substr(std::string("keybind_").length());
 
-        std::string args[message->num_args - 1];
+        std::string args[message->num_args - 2];
 
-        for (int i = 1; i < message->num_args; i++) {
-            args[i - 1] = std::string(message->args[i]);
+        for (int i = 2; i < message->num_args; i++) {
+            args[i - 2] = std::string(message->args[i]);
         }
 
         if (keybinds.find(keybind_name) != keybinds.end()) {
@@ -138,12 +138,12 @@ namespace YomitanMPV {
     }
 
     void Util::lock_keybind_event_poll(const mpv_event_client_message *message) {
-        const std::string keybind_name = std::string(message->args[0]).substr(std::string("lock_keybind_").length());
+        const std::string keybind_name = std::string(message->args[1]).substr(std::string("lock_keybind_").length());
 
-        std::string args[message->num_args - 1];
+        std::string args[message->num_args - 2];
 
-        for (int i = 1; i < message->num_args; i++) {
-            args[i - 1] = std::string(message->args[i]);
+        for (int i = 2; i < message->num_args; i++) {
+            args[i - 2] = std::string(message->args[i]);
         }
 
         if (lock_keybind_callbacks.find(keybind_name) != lock_keybind_callbacks.end()) {

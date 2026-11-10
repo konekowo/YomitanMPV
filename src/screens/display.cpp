@@ -94,7 +94,10 @@ namespace YomitanMPV {
 
             const Clay_RenderCommandArray commands = Clay_EndLayout();
 
+
+
             std::string ass_events;
+            std::stack<Clay_BoundingBox> clips;
 
             for (int i = 0; i < commands.length; i++) {
                 const auto *command = &commands.internalArray[i];
@@ -116,6 +119,15 @@ namespace YomitanMPV {
                         ass_event.append("\\1c").append(color_to_ass_hex(data.backgroundColor));
                         ass_event.append("\\1a").append(alpha_to_ass_hex(data.backgroundColor.a));
                         ass_event.append("\\p1");
+                        if (!clips.empty()) {
+                            Clay_BoundingBox clip = clips.top();
+                            ass_event.append("\\clip(1,");
+                            ass_event.append("m ").append(std::to_string(clip.x)).append(" ").append(std::to_string(clip.y))
+                                .append(" l ").append(std::to_string(clip.width + clip.x)).append(" ").append(std::to_string(clip.y))
+                                .append(" l ").append(std::to_string(clip.width + clip.x)).append(" ").append(std::to_string(clip.height + clip.y))
+                                .append(" l ").append(std::to_string(clip.x)).append(" ").append(std::to_string(clip.height + clip.y));
+                            ass_event.append(")");
+                        }
                         ass_event.append("}");
 
                         ass_event.append("m 0 0 l ").append(std::to_string(bounding_box.width)).append(" 0 l ")
@@ -137,6 +149,15 @@ namespace YomitanMPV {
                         ass_event.append("\\1c").append(color_to_ass_hex(data.color));
                         ass_event.append("\\1a").append(alpha_to_ass_hex(data.color.a));
                         ass_event.append("\\p1");
+                        if (!clips.empty()) {
+                            Clay_BoundingBox clip = clips.top();
+                            ass_event.append("\\clip(1,");
+                            ass_event.append("m ").append(std::to_string(clip.x)).append(" ").append(std::to_string(clip.y))
+                                .append(" l ").append(std::to_string(clip.width + clip.x)).append(" ").append(std::to_string(clip.y))
+                                .append(" l ").append(std::to_string(clip.width + clip.x)).append(" ").append(std::to_string(clip.height + clip.y))
+                                .append(" l ").append(std::to_string(clip.x)).append(" ").append(std::to_string(clip.height + clip.y));
+                            ass_event.append(")");
+                        }
                         ass_event.append("}");
 
                         auto append_rect = [&](const float x0, const float y0, const float x1, const float y1) {
@@ -197,6 +218,16 @@ namespace YomitanMPV {
                         if (data_ext)
                             ass_event.append("\\bord").append(std::to_string(data_ext->outline_thickness));
 
+                        if (!clips.empty()) {
+                            Clay_BoundingBox clip = clips.top();
+                            ass_event.append("\\clip(1,");
+                            ass_event.append("m ").append(std::to_string(clip.x)).append(" ").append(std::to_string(clip.y))
+                                .append(" l ").append(std::to_string(clip.width + clip.x)).append(" ").append(std::to_string(clip.y))
+                                .append(" l ").append(std::to_string(clip.width + clip.x)).append(" ").append(std::to_string(clip.height + clip.y))
+                                .append(" l ").append(std::to_string(clip.x)).append(" ").append(std::to_string(clip.height + clip.y));
+                            ass_event.append(")");
+                        }
+
                         ass_event.append("}");
                         ass_event.append(std::string(data.stringContents.chars, data.stringContents.length));
                         break;
@@ -204,8 +235,10 @@ namespace YomitanMPV {
                     case CLAY_RENDER_COMMAND_TYPE_IMAGE:
                         break;
                     case CLAY_RENDER_COMMAND_TYPE_SCISSOR_START:
+                        clips.push(command->boundingBox);
                         break;
                     case CLAY_RENDER_COMMAND_TYPE_SCISSOR_END:
+                        clips.pop();
                         break;
                     case CLAY_RENDER_COMMAND_TYPE_CUSTOM:
                         break;
@@ -307,13 +340,12 @@ namespace YomitanMPV {
         const std::string ass_event_text_with_markers = ass_event_styling + "|" + str + "|";
         const std::string ass_event_markers = ass_event_styling + "||";
 
-        const auto bounds = get_bounds(ass_event_styling + str);
         const auto bounds_text_with_markers = get_bounds(ass_event_text_with_markers);
         const auto bounds_markers = get_bounds(ass_event_markers);
 
         return {
             .width = static_cast<float>(std::max(0.0, bounds_text_with_markers.width() - bounds_markers.width())),
-            .height = static_cast<float>(bounds.height())
+            .height = static_cast<float>(bounds_markers.height())
         };
     }
 

@@ -40,7 +40,10 @@ namespace YomitanMPV {
             network
         );
 
-        util->register_keybind(config->config.keybinds.select_mode, "select_mode", [this, select_screen](std::string[]) {
+        util->register_keybind(config->config.keybinds.select_mode, "select_mode", [this, select_screen](std::string args[]) {
+            if (args[0][0] != 'd')
+                return;
+
             display->set_current_screen(select_screen);
         });
 
@@ -60,12 +63,15 @@ namespace YomitanMPV {
             if (event->event_id == MPV_EVENT_CLIENT_MESSAGE) {
                 auto *msg = static_cast<mpv_event_client_message *>(event->data);
 
-                if (msg->num_args > 0) {
-                    if (std::string(msg->args[0]).compare(0, std::string("keybind_").length(), "keybind_") == 0) {
-                        util->keybind_event_poll(msg);
-                    }
-                    if (std::string(msg->args[0]).compare(0, std::string("lock_keybind_").length(), "lock_keybind_") == 0) {
-                        util->lock_keybind_event_poll(msg);
+
+                if (msg->num_args >= 7) {
+                    if (std::string(msg->args[0]) == "key-binding") {
+                        if (std::string(msg->args[1]).compare(0, std::string("keybind_").length(), "keybind_") == 0) {
+                            util->keybind_event_poll(msg);
+                        }
+                        if (std::string(msg->args[1]).compare(0, std::string("lock_keybind_").length(), "lock_keybind_") == 0) {
+                            util->lock_keybind_event_poll(msg);
+                        }
                     }
                 }
             }

@@ -20,7 +20,7 @@ namespace YomitanMPV {
             };
         }
 
-        std::function mouse_input_function = [this] {
+        auto mouse_input_function = [this] {
             int64_t x = 0, y = 0;
             int hovered = 0;
 
@@ -64,11 +64,44 @@ namespace YomitanMPV {
         });
 
         register_keybind("MBTN_LEFT", "input_mouse_left", [this, mouse_input_function](std::string args[]) {
-            mouse_down = true;
+            if (args[0][0] == 'd')
+                mouse_down = true;
+            else if (args[0][0] == 'u')
+                mouse_down = false;
 
             mouse_input_function();
+        });
 
-            mouse_down = false;
+        auto mouse_scroll_function = [this](float scrollAmountX, float scrollAmountY) {
+            constexpr float scroll_step = 10.0f;
+
+            Clay_UpdateScrollContainers(
+                false,
+                {
+                    .x = 0.0f,
+                    .y = scrollAmountY * scroll_step
+                },
+                1.0f / 60.0f
+            );
+
+            if (draw)
+                draw();
+        };
+
+        register_keybind("WHEEL_UP", "input_mouse_wheel_up", [mouse_scroll_function](std::string args[]) {
+            mouse_scroll_function(0.0f, 1.0f * std::stof(std::string(args[3])));
+        });
+
+        register_keybind("WHEEL_DOWN", "input_mouse_wheel_down", [mouse_scroll_function](std::string args[]) {
+            mouse_scroll_function(0.0f, -1.0f * std::stof(std::string(args[3])));
+        });
+
+        register_keybind("WHEEL_LEFT", "input_mouse_wheel_left", [mouse_scroll_function](std::string args[]) {
+            mouse_scroll_function(-1.0f * std::stof(std::string(args[3])), 0.0f);
+        });
+
+        register_keybind("WHEEL_RIGHT", "input_mouse_wheel_right", [mouse_scroll_function](std::string args[]) {
+            mouse_scroll_function(1.0f * std::stof(std::string(args[3])), 0.0f);
         });
     }
 
