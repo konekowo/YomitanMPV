@@ -34,14 +34,13 @@ namespace YomitanMPV {
         auto select_screen = std::make_shared<SelectScreen>(
             mpv_ctx,
             logger,
+            util,
             display,
             config,
-            util,
             network
         );
 
         util->register_keybind(config->config.keybinds.select_mode, "select_mode", [this, select_screen](std::string[]) {
-            //enter_select_mode();
             display->set_current_screen(select_screen);
         });
 
@@ -84,105 +83,5 @@ namespace YomitanMPV {
                 }
             }
         }
-    }
-
-    template <typename T, typename F>
-    static void on_done(std::future<T> future, F callback) {
-        std::thread([f = std::move(future), cb = std::move(callback)]() mutable {
-            T result = f.get();
-            cb(result);
-        }).detach();
-    }
-
-    void Context::enter_select_mode() {
-        util->lock_controls("select_mode_lock");
-
-        int paused = 1;
-        mpv_set_property(this->mpv_ctx, "pause", MPV_FORMAT_FLAG, &paused);
-        util->set_subs_visible(false);
-
-        select_mode = true;
-
-        std::string line = util->get_current_subtitle_line();
-
-        if (line.empty()) {
-            util->osd_show_text("There are no subtitles to select.", std::chrono::seconds(2));
-
-            exit_select_mode();
-            return;
-        }
-
-        ui_title = util->add_overlay_event(
-            OverlayBuilder()
-                .type(TEXT)
-                .anchor(TOP_RIGHT)
-                .text("Select Mode (Press ESC or '" + config->config.keybinds.select_mode + "' to exit)")
-                .x(1905)
-                .y(15)
-                .build()
-        );
-
-        ui_tokenizing = util->add_overlay_event(
-            OverlayBuilder()
-                .type(TEXT)
-                .text("Tokenizing...")
-                .x(15)
-                .y(15)
-                .build()
-        );
-
-        on_done(network->fetch(
-            Network::HttpRequest()
-                .url(config->config.yomitan_api_url + "/tokenize")
-                .method(Network::POST)
-                .body({
-                    {"text", line},
-                    {"scanLength", line.length()}
-                })
-        ), [this, line](Network::HttpResponse response) {
-            if (!select_mode)
-                return;
-
-            if (util->get_current_subtitle_line() != line)
-                return;
-
-            if (!response.is_ok()) {
-                util->osd_show_text("Failed to tokenize!", std::chrono::seconds(2));
-                exit_select_mode();
-
-                return;
-            }
-
-            util->remove_overlay(ui_tokenizing);
-
-            nlohmann::json json = response.json();
-
-            std::vector<std::string> segments;
-
-            for (auto segment : json.at(0)["content"]) {
-                segments.push_back(segment.at(0)["text"]);
-                logger->info(segment.at(0)["text"]);
-            }
-
-            ui_text_segments = util->add_broken_up_text(segments);
-        });
-
-
-    }
-
-    void Context::exit_select_mode() {
-        select_mode = false;
-
-        util->remove_overlay(ui_tokenizing);
-        util->remove_overlay(ui_title);
-        for (int ui_text_segment : ui_text_segments) {
-            util->remove_overlay(ui_text_segment);
-        }
-
-        util->unlock_controls("select_mode_lock");
-
-        int paused = 0;
-        mpv_set_property(this->mpv_ctx, "pause", MPV_FORMAT_FLAG, &paused);
-        util->set_subs_visible(true);
     }
 }

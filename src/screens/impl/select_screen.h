@@ -12,9 +12,9 @@ namespace YomitanMPV {
         SelectScreen(
             mpv_handle *mpv_ctx,
             const std::shared_ptr<spdlog::logger> &logger,
+            const std::shared_ptr<Util> &util,
             const std::shared_ptr<Display> &display,
             const std::shared_ptr<Config> &config,
-            const std::shared_ptr<Util> &util,
             const std::shared_ptr<Network> &network
         );
 
@@ -33,10 +33,11 @@ namespace YomitanMPV {
         bool tokenizing = false;
 
         std::string help;
-        std::string status = "Tokenizing...";
+        std::string status;
         bool status_is_error = false;
 
         std::vector<std::vector<std::string>> segment_lines;
         std::vector<std::string> segment_line_indexes;
+        std::vector<std::vector<std::string>> segment_indexes;
     };
 }

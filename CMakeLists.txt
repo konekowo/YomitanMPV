@@ -47,6 +47,7 @@ add_library(YomitanMPV SHARED
         src/screens/screen.h
         src/screens/impl/select_screen.cpp
         src/screens/impl/select_screen.h
+        src/screens/clay_ext.h
 )
 
 target_include_directories(YomitanMPV PRIVATE

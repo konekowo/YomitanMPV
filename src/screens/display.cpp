@@ -49,6 +49,8 @@ namespace YomitanMPV {
 
         mpv_observe_property(mpv_ctx, 0, "osd-width", MPV_FORMAT_INT64);
         mpv_observe_property(mpv_ctx, 0, "osd-height", MPV_FORMAT_INT64);
+
+        Clay_SetPointerState({ .x = 0, .y = 0 }, false);
     }
 
     void Display::poll(const mpv_event *event) {
@@ -59,15 +61,19 @@ namespace YomitanMPV {
             } else if (std::string(prop->name) == "osd-height" && prop->format == MPV_FORMAT_INT64 && prop->data) {
                 height = *static_cast<int64_t *>(prop->data);
                 scale = static_cast<float>(height) / BASE_HEIGHT;
+                if (current_screen)
+                    current_screen->set_scale(scale);
             }
         }
 
         if (last_width != width || last_height != height) {
             Clay_SetLayoutDimensions({ .width = static_cast<float>(width) / scale, .height = static_cast<float>(height) / scale });
+            if (current_screen) {
+                current_screen->set_width(width);
+                current_screen->set_height(height);
+            }
             draw();
         }
-
-        Clay_SetPointerState({ .x = 0, .y = 0 }, false);
 
         if (current_screen) {
             current_screen->poll(event);
@@ -90,26 +96,51 @@ namespace YomitanMPV {
 
             std::string ass_events;
 
-            logger->debug("[Display] Frame Start");
-
             for (int i = 0; i < commands.length; i++) {
                 const auto *command = &commands.internalArray[i];
                 const auto bounding_box = command->boundingBox;
-
-                logger->debug("[Display] Command Type: {}", std::to_string(command->commandType));
 
                 std::string ass_event;
 
                 switch (command->commandType) {
                     case CLAY_RENDER_COMMAND_TYPE_NONE:
                         break;
-                    case CLAY_RENDER_COMMAND_TYPE_RECTANGLE:
+                    case CLAY_RENDER_COMMAND_TYPE_RECTANGLE: {
+                        const auto data = command->renderData.rectangle;
+
+                        ass_event.append("{");
+                        ass_event.append("\\an7");
+                        ass_event.append("\\pos(").append(std::to_string(bounding_box.x)).append(",").append(std::to_string(bounding_box.y)).append(")");
+                        ass_event.append("\\bord0");
+                        ass_event.append("\\shad0");
+                        ass_event.append("\\1c").append(color_to_ass_hex(data.backgroundColor));
+                        ass_event.append("\\1a").append(alpha_to_ass_hex(data.backgroundColor.a));
+                        ass_event.append("\\p1");
+                        ass_event.append("}");
+
+                        ass_event.append("m 0 0 l ").append(std::to_string(bounding_box.width)).append(" 0 l ")
+                            .append(std::to_string(bounding_box.width)).append(" ").append(std::to_string(bounding_box.height))
+                            .append(" l 0 ").append(std::to_string(bounding_box.height));
+
+                        ass_event.append("{\\p0}");
+
                         break;
+                    }
                     case CLAY_RENDER_COMMAND_TYPE_BORDER:
                         break;
                     case CLAY_RENDER_COMMAND_TYPE_TEXT: {
                         const auto data = command->renderData.text;
+
+                        std::shared_ptr<TextConfigExt> data_ext;
+
+                        if (command->userData) {
+                            data_ext = *static_cast<std::shared_ptr<TextConfigExt>*>(command->userData);
+                        } else {
+                            data_ext = std::make_shared<TextConfigExt>();
+                        }
+
                         ass_event.append("{");
+                        ass_event.append("\\an7");
                         ass_event.append("\\pos(").append(std::to_string(bounding_box.x)).append(",").append(std::to_string(bounding_box.y)).append(")");
                         ass_event.append("\\fs").append(std::to_string(data.fontSize));
 
@@ -122,10 +153,13 @@ namespace YomitanMPV {
                         ass_event.append("\\fsp").append(std::to_string(data.letterSpacing));
 
                         ass_event.append("\\1c").append(color_to_ass_hex(data.textColor));
+                            ass_event.append("\\3c").append(color_to_ass_hex(data_ext->outline_color));
                         ass_event.append("\\1a").append(alpha_to_ass_hex(data.textColor.a));
-                        ass_event.append("\\3a").append(alpha_to_ass_hex(data.textColor.a));
+                        ass_event.append("\\3a").append(alpha_to_ass_hex(data_ext->outline_color.a));
 
                         ass_event.append("\\shad0");
+                        if (data_ext)
+                            ass_event.append("\\bord").append(std::to_string(data_ext->outline_thickness));
 
                         ass_event.append("}");
                         ass_event.append(std::string(data.stringContents.chars, data.stringContents.length));
@@ -147,8 +181,6 @@ namespace YomitanMPV {
                 }
             }
 
-            logger->debug("[Display] ASS events: {}", ass_events);
-
             const char *cmd[] = {
                 "osd-overlay",
                 UI_LAYER_ID.c_str(),
@@ -164,8 +196,6 @@ namespace YomitanMPV {
 
             mpv_command(mpv_ctx, cmd);
 
-            logger->debug("[Display] Frame End");
-
             ui_layer_drawn = true;
         } else if (ui_layer_drawn) {
             const char *cmd[] = {
@@ -177,8 +207,6 @@ namespace YomitanMPV {
             };
 
             mpv_command(mpv_ctx, cmd);
-
-            logger->debug("[Display] Screen cleared");
 
             ui_layer_drawn = false;
         }
@@ -209,6 +237,7 @@ namespace YomitanMPV {
         const auto str = std::string(text.chars, text.length);
 
         std::string ass_event_styling = "{";
+        ass_event_styling.append("\\an7");
         ass_event_styling.append("\\pos(0,0)");
         ass_event_styling.append("\\fs").append(std::to_string(config->fontSize));
 
@@ -242,12 +271,13 @@ namespace YomitanMPV {
         const std::string ass_event_text_with_markers = ass_event_styling + "|" + str + "|";
         const std::string ass_event_markers = ass_event_styling + "||";
 
+        const auto bounds = get_bounds(ass_event_styling + str);
         const auto bounds_text_with_markers = get_bounds(ass_event_text_with_markers);
         const auto bounds_markers = get_bounds(ass_event_markers);
 
         return {
             .width = static_cast<float>(std::max(0.0, bounds_text_with_markers.width() - bounds_markers.width())),
-            .height = static_cast<float>(bounds_text_with_markers.height())
+            .height = static_cast<float>(bounds.height())
         };
     }
 
@@ -301,6 +331,16 @@ namespace YomitanMPV {
         }
 
         mpv_free_node_contents(&result);
+
+        const char *cmd_clear[] = {
+            "osd-overlay",
+            UI_MEASURE_LAYER_ID.c_str(),
+            "none",
+            "",
+            nullptr
+        };
+
+        mpv_command(mpv_ctx, cmd_clear);
 
         return bounds;
     }
