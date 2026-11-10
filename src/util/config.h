@@ -18,9 +18,10 @@ namespace YomitanMPV {
 
         struct Configuration {
             std::string yomitan_api_url{"http://127.0.0.1:19633"};
+            int scan_length = 20;
             Keybinds keybinds;
 
-            NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(Configuration, yomitan_api_url, keybinds);
+            NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(Configuration, yomitan_api_url, scan_length, keybinds);
         };
 
         Configuration config;

@@ -24,6 +24,20 @@ namespace YomitanMPV {
         void destroy() override;
 
     private:
+        struct Token {
+            std::string text;
+            bool selectable = false;
+        };
+
+        struct TokenLines {
+            std::vector<std::vector<Token>> token_lines;
+            std::vector<std::string> line_indexes;
+            std::vector<std::vector<std::string>> token_indexes;
+            nlohmann::json json;
+
+            static std::unique_ptr<TokenLines> from_json(const nlohmann::json& json);
+        };
+
         std::shared_ptr<Network> network;
         std::shared_ptr<Util> util;
         std::shared_ptr<Display> display;
@@ -31,13 +45,13 @@ namespace YomitanMPV {
 
         std::future<Network::HttpResponse> tokenize_request;
         bool tokenizing = false;
+        std::unique_ptr<TokenLines> token_lines = nullptr;
 
         std::string help;
+        std::shared_ptr<TextConfigExt> help_text_config_ext = std::make_shared<TextConfigExt>();
         std::string status;
         bool status_is_error = false;
 
-        std::vector<std::vector<std::string>> segment_lines;
-        std::vector<std::string> segment_line_indexes;
-        std::vector<std::vector<std::string>> segment_indexes;
+
     };
 }

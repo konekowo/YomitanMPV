@@ -348,7 +348,7 @@ namespace YomitanMPV {
 
         return {
             .width = static_cast<float>(std::max(0.0, bounds_text_with_markers.width() - bounds_markers.width())),
-            .height = static_cast<float>(bounds_markers.height())
+            .height = static_cast<float>(bounds_text_with_markers.height())
         };
     }
 

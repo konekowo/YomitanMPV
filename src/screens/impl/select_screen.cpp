@@ -37,6 +37,8 @@ namespace YomitanMPV {
         Screen::register_input("select_mode_lock");
 
         help = "Press ESC or " + config->config.keybinds.select_mode + " to exit.";
+        help_text_config_ext->outline_thickness = 2;
+        help_text_config_ext->outline_color.a = 100;
     }
 
 
@@ -47,9 +49,7 @@ namespace YomitanMPV {
         mpv_set_property(this->mpv_ctx, "pause", MPV_FORMAT_FLAG, &paused);
         util->set_subs_visible(false);
 
-        segment_lines.clear();
-        segment_line_indexes.clear();
-        segment_indexes.clear();
+        token_lines = nullptr;
 
         const auto line = util->get_current_subtitle_line();
 
@@ -70,7 +70,7 @@ namespace YomitanMPV {
                 .method(Network::POST)
                 .body({
                     {"text", line},
-                    {"scanLength", line.length()}
+                    {"scanLength", config->config.scan_length}
                 })
         );
     }
@@ -113,7 +113,7 @@ namespace YomitanMPV {
                     CLAY_TEXT(
                         help_clay_str,
                         CLAY_TEXT_CONFIG({
-                            .userData = &default_text_config_ext,
+                            .userData = &help_text_config_ext,
                             .textColor = { .r = 255, .g = 255, .b = 255, .a = 100 },
                             .fontSize = 24
                         })
@@ -144,46 +144,48 @@ namespace YomitanMPV {
                 .childAlignment = { .x = CLAY_ALIGN_X_CENTER, .y = CLAY_ALIGN_Y_TOP },
                 .layoutDirection = CLAY_TOP_TO_BOTTOM
             }) {
-                for (int i = 0; i < segment_lines.size(); ++i) {
-                    const auto &segments = segment_lines[i];
+                if (token_lines) {
+                    for (int i = 0; i < token_lines->token_lines.size(); ++i) {
+                        const auto &tokens = token_lines->token_lines[i];
 
-                    const Clay_String segment_line_id = {
-                        .length = static_cast<int32_t>(segment_line_indexes[i].length()),
-                        .chars = segment_line_indexes[i].c_str()
-                    };
+                        const Clay_String token_line_id = {
+                            .length = static_cast<int32_t>(token_lines->line_indexes[i].length()),
+                            .chars = token_lines->line_indexes[i].c_str()
+                        };
 
-                    CLAY(Clay__HashString(segment_line_id, 0, 0), {
-                        .sizing = { .width = CLAY_SIZING_GROW(), .height = CLAY_SIZING_FIT() },
-                        .childAlignment = { .x = CLAY_ALIGN_X_CENTER, .y = CLAY_ALIGN_Y_TOP },
-                        .layoutDirection = CLAY_LEFT_TO_RIGHT
-                    }) {
-                        for (int j = 0; j < segments.size(); ++j) {
-                            const auto &segment = segments[j];
+                        CLAY(Clay__HashString(token_line_id, 0, 0), {
+                            .sizing = { .width = CLAY_SIZING_GROW(), .height = CLAY_SIZING_FIT() },
+                            .childAlignment = { .x = CLAY_ALIGN_X_CENTER, .y = CLAY_ALIGN_Y_TOP },
+                            .layoutDirection = CLAY_LEFT_TO_RIGHT
+                        }) {
+                            for (int j = 0; j < tokens.size(); ++j) {
+                                const auto &token = tokens[j];
 
-                            const Clay_String segment_str = {
-                                .length = static_cast<int32_t>(segment.length()),
-                                .chars = segment.c_str()
-                            };
+                                const Clay_String token_str = {
+                                    .length = static_cast<int32_t>(token.text.length()),
+                                    .chars = token.text.c_str()
+                                };
 
-                            const Clay_String segment_id = {
-                                .length = static_cast<int32_t>(segment_indexes[i][j].length()),
-                                .chars = segment_indexes[i][j].c_str()
-                            };
+                                const Clay_String token_id = {
+                                    .length = static_cast<int32_t>(token_lines->token_indexes[i][j].length()),
+                                    .chars = token_lines->token_indexes[i][j].c_str()
+                                };
 
-                            CLAY(Clay__HashString(segment_id, 0, 0), {
-                                .sizing = { .width = CLAY_SIZING_FIT(), .height = CLAY_SIZING_FIT() },
-                            }) {
-                                bool buttonHovered = Clay_Hovered();
-                                CLAY_TEXT(
-                                    segment_str,
-                                    CLAY_TEXT_CONFIG({
-                                        .userData = &default_text_config_ext,
-                                        .textColor = buttonHovered ?
-                                            Clay_Color{ .r = 0, .g = 119, .b = 255, .a = 255 } :
-                                            Clay_Color{ .r = 255, .g = 255, .b = 255, .a = 255 },
-                                        .fontSize = 58
-                                    })
-                                );
+                                CLAY(Clay__HashString(token_id, 0, 0), {
+                                    .sizing = { .width = CLAY_SIZING_FIT(), .height = CLAY_SIZING_FIT() },
+                                }) {
+                                    const bool buttonHovered = Clay_Hovered();
+                                    CLAY_TEXT(
+                                        token_str,
+                                        CLAY_TEXT_CONFIG({
+                                            .userData = &default_text_config_ext,
+                                            .textColor = buttonHovered ?
+                                                Clay_Color{ .r = 0, .g = 119, .b = 255, .a = 255 } :
+                                                Clay_Color{ .r = 255, .g = 255, .b = 255, .a = 255 },
+                                            .fontSize = 58
+                                        })
+                                    );
+                                }
                             }
                         }
                     }
@@ -209,37 +211,9 @@ namespace YomitanMPV {
                     return;
                 }
 
-                nlohmann::json json = response.json();
+                const nlohmann::json json = response.json();
 
-                std::vector<std::string> segments;
-                for (const auto& segment : json.at(0).at("content")) {
-                    std::string text;
-                    for (const auto& part : segment) {
-                        text += part.at("text").get<std::string>();
-                    }
-
-                    if (text == "\n") {
-                        segment_lines.push_back(std::move(segments));
-                        segments.clear();
-                    } else {
-                        segments.push_back(std::move(text));
-                    }
-                }
-
-                segment_lines.push_back(std::move(segments));
-
-                if (!segments.empty()) {
-                    segment_lines.push_back(segments);
-                }
-
-                for (int i = 0; i < segment_lines.size(); ++i) {
-                    segment_line_indexes.push_back("SegmentLine" + std::to_string(i));
-                    std::vector<std::string> line_indexes;
-                    for (int j = 0; j < segment_lines[i].size(); ++j) {
-                        line_indexes.push_back("Segment" + std::to_string(i) + "_" + std::to_string(j));
-                    }
-                    segment_indexes.push_back(line_indexes);
-                }
+                token_lines = TokenLines::from_json(json);
 
                 status = "";
 
@@ -257,5 +231,52 @@ namespace YomitanMPV {
         util->set_subs_visible(true);
 
         tokenize_request = std::future<Network::HttpResponse>();
+    }
+
+    std::unique_ptr<SelectScreen::TokenLines> SelectScreen::TokenLines::from_json(const nlohmann::json &json) {
+        auto token_lines = std::make_unique<TokenLines>();
+
+        std::vector<Token> tokens;
+        for (const auto& token : json.at(0).at("content")) {
+            std::string text;
+
+            bool has_headwords = false;
+
+            for (const auto& part : token) {
+                text += part.at("text").get<std::string>();
+
+                if (part.contains("headwords"))
+                    has_headwords = true;
+            }
+
+            if (text == "\n") {
+                token_lines->token_lines.push_back(std::move(tokens));
+                tokens.clear();
+            } else {
+                tokens.push_back({
+                    .text = std::move(text),
+                    .selectable = has_headwords
+                });
+            }
+        }
+
+        token_lines->token_lines.push_back(std::move(tokens));
+
+        if (!tokens.empty()) {
+            token_lines->token_lines.push_back(tokens);
+        }
+
+        for (int i = 0; i < token_lines->token_lines.size(); ++i) {
+            token_lines->line_indexes.push_back("TokenLine" + std::to_string(i));
+            std::vector<std::string> line_indexes;
+            for (int j = 0; j < token_lines->token_lines[i].size(); ++j) {
+                line_indexes.push_back("Token" + std::to_string(i) + "_" + std::to_string(j));
+            }
+            token_lines->token_indexes.push_back(line_indexes);
+        }
+
+        token_lines->json = json;
+
+        return std::move(token_lines);
     }
 }
