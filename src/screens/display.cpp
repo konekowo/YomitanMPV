@@ -1,6 +1,8 @@
 #include "display.h"
 
 #define CLAY_IMPLEMENTATION
+#include <stack>
+
 #include "clay.h"
 
 const auto UI_LAYER_ID = std::to_string(12329);
