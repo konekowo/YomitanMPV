@@ -176,7 +176,7 @@ namespace YomitanMPV {
                                 CLAY(Clay__HashString(token_id, 0, 0), {
                                     .sizing = { .width = CLAY_SIZING_FIT(), .height = CLAY_SIZING_FIT() },
                                 }) {
-                                    const bool token_hovered = Clay_Hovered();
+                                    const bool token_hovered = Clay_Hovered() && token.selectable;
 
                                     if (token_hovered)
                                         hovered_token = &token;
