@@ -86,6 +86,8 @@ namespace YomitanMPV {
             .chars = status.c_str()
         };
 
+        const Token *hovered_token = nullptr;
+
         CLAY(CLAY_ID("Root"), {
             .sizing = { .width = CLAY_SIZING_GROW(), .height = CLAY_SIZING_GROW() },
             .padding = CLAY_PADDING_ALL(32),
@@ -174,12 +176,16 @@ namespace YomitanMPV {
                                 CLAY(Clay__HashString(token_id, 0, 0), {
                                     .sizing = { .width = CLAY_SIZING_FIT(), .height = CLAY_SIZING_FIT() },
                                 }) {
-                                    const bool buttonHovered = Clay_Hovered();
+                                    const bool token_hovered = Clay_Hovered();
+
+                                    if (token_hovered)
+                                        hovered_token = &token;
+
                                     CLAY_TEXT(
                                         token_str,
                                         CLAY_TEXT_CONFIG({
                                             .userData = &default_text_config_ext,
-                                            .textColor = buttonHovered ?
+                                            .textColor = token_hovered ?
                                                 Clay_Color{ .r = 0, .g = 119, .b = 255, .a = 255 } :
                                                 Clay_Color{ .r = 255, .g = 255, .b = 255, .a = 255 },
                                             .fontSize = 58
@@ -189,6 +195,29 @@ namespace YomitanMPV {
                             }
                         }
                     }
+                }
+            }
+            if (hovered_token != nullptr) {
+                CLAY({
+                    .id = CLAY_ID("LookupWindow"),
+                    .layout = {
+                        .sizing = {
+                            .width = CLAY_SIZING_FIT(600),
+                            .height = CLAY_SIZING_FIT(400)
+                        },
+                        .childAlignment = { .x = CLAY_ALIGN_X_LEFT, .y = CLAY_ALIGN_Y_TOP },
+                        .layoutDirection = CLAY_TOP_TO_BOTTOM
+                    },
+                    .backgroundColor = { .r = 10, .g = 10, .b = 10, .a = 240 },
+                    .floating = {
+                        .attachPoints = {
+                            .element = CLAY_ATTACH_POINT_CENTER_CENTER,
+                            .parent = CLAY_ATTACH_POINT_CENTER_CENTER
+                        },
+                        .attachTo = CLAY_ATTACH_TO_PARENT
+                    }
+                }) {
+
                 }
             }
         }

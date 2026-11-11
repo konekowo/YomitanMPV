@@ -72,13 +72,13 @@ namespace YomitanMPV {
             mouse_input_function();
         });
 
-        auto mouse_scroll_function = [this](float scrollAmountX, float scrollAmountY) {
-            constexpr float scroll_step = 10.0f;
+        auto mouse_scroll_function = [this](const float scrollAmountX, const float scrollAmountY) {
+            constexpr float scroll_step = 5.0f;
 
             Clay_UpdateScrollContainers(
                 false,
                 {
-                    .x = 0.0f,
+                    .x = scrollAmountX * scroll_step,
                     .y = scrollAmountY * scroll_step
                 },
                 1.0f / 60.0f
