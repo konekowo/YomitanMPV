@@ -60,6 +60,7 @@ namespace YomitanMPV {
             return;
         }
 
+        lookup_request = std::nullopt;
         tokenizing = true;
         status = "Tokenizing...";
         status_is_error = false;
@@ -178,8 +179,10 @@ namespace YomitanMPV {
                                 }) {
                                     const bool token_hovered = Clay_Hovered() && token.selectable;
 
-                                    if (token_hovered)
+                                    if (token_hovered) {
                                         hovered_token = &token;
+                                        this->token_hovered(token);
+                                    }
 
                                     CLAY_TEXT(
                                         token_str,
@@ -188,7 +191,8 @@ namespace YomitanMPV {
                                             .textColor = token_hovered ?
                                                 Clay_Color{ .r = 0, .g = 119, .b = 255, .a = 255 } :
                                                 Clay_Color{ .r = 255, .g = 255, .b = 255, .a = 255 },
-                                            .fontSize = 58
+                                            .fontSize = 58,
+                                            .wrapMode = CLAY_TEXT_WRAP_NONE
                                         })
                                     );
                                 }
@@ -223,6 +227,20 @@ namespace YomitanMPV {
         }
     }
 
+    void SelectScreen::token_hovered(const Token &token) {
+        if (lookup_request.has_value() && lookup_request->first->text == token.text)
+            return;
+
+        lookup_request = std::make_pair(&token, network->fetch(
+            Network::HttpRequest()
+                .url(config->config.yomitan_api_url + "/termEntries")
+                .method(Network::POST)
+                .body({
+                    {"term", token.text}
+                })
+        ));
+    }
+
     void SelectScreen::poll(const mpv_event *event) {
         if (tokenize_request.valid() && tokenizing) {
             if (tokenize_request.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
@@ -249,6 +267,18 @@ namespace YomitanMPV {
                 if (draw)
                     draw();
             }
+        }
+
+        if (lookup_request.has_value() && lookup_request->second.valid() && lookup_request->second.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
+            auto response = lookup_request->second.get();
+
+            if (!response.is_ok()) {
+                // TODO: show error
+
+                return;
+            }
+
+            const nlohmann::json json = response.json();
         }
     }
 

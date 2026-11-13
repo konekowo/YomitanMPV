@@ -52,6 +52,8 @@ namespace YomitanMPV {
         std::string status;
         bool status_is_error = false;
 
+        std::optional<std::pair<const Token*, std::future<Network::HttpResponse>>> lookup_request = std::nullopt;
 
+        void token_hovered(const Token &token);
     };
 }
