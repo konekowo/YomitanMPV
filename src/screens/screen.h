@@ -16,13 +16,13 @@ namespace YomitanMPV {
 
         virtual void init() = 0;
 
-        virtual void layout() = 0;
+        virtual bool layout() = 0;
 
         virtual void poll(const mpv_event *event) = 0;
 
         virtual void destroy() = 0;
 
-        void set_draw_cb(const std::function<void()> &draw_cb);
+        void set_draw_cb(const std::function<void()> &draw_cb, const std::function<void()> &request_draw_cb);
 
         void set_width(int64_t width);
         void set_height(int64_t height);
@@ -33,6 +33,7 @@ namespace YomitanMPV {
         std::shared_ptr<Util> util;
 
         std::function<void()> draw = nullptr;
+        std::function<void()> request_draw = nullptr;
 
         std::shared_ptr<TextConfigExt> default_text_config_ext = std::make_shared<TextConfigExt>();
 

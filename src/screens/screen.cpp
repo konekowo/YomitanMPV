@@ -55,8 +55,14 @@ namespace YomitanMPV {
                 .y = static_cast<float>(y) * (clay_height / static_cast<float>(height))
             } : Clay_Vector2{ .x = -9999, .y = -9999 }, mouse_down);
 
-            if (draw)
-                draw();
+            if (Clay_IsDebugModeEnabled()) {
+                if (draw)
+                    draw();
+            } else {
+                if (request_draw)
+                    request_draw();
+            }
+
         };
 
         register_keybind("MOUSE_MOVE", "input_mouse_move", [mouse_input_function](std::string args[]) {
@@ -97,11 +103,11 @@ namespace YomitanMPV {
         });
 
         register_keybind("WHEEL_LEFT", "input_mouse_wheel_left", [mouse_scroll_function](std::string args[]) {
-            mouse_scroll_function(-1.0f * std::stof(std::string(args[3])), 0.0f);
+            mouse_scroll_function(1.0f * std::stof(std::string(args[3])), 0.0f);
         });
 
         register_keybind("WHEEL_RIGHT", "input_mouse_wheel_right", [mouse_scroll_function](std::string args[]) {
-            mouse_scroll_function(1.0f * std::stof(std::string(args[3])), 0.0f);
+            mouse_scroll_function(-1.0f * std::stof(std::string(args[3])), 0.0f);
         });
     }
 
@@ -117,7 +123,8 @@ namespace YomitanMPV {
         this->scale = scale;
     }
 
-    void Screen::set_draw_cb(const std::function<void()> &draw_cb) {
+    void Screen::set_draw_cb(const std::function<void()> &draw_cb, const std::function<void()> &request_draw_cb) {
         draw = draw_cb;
+        request_draw = request_draw_cb;
     }
 }

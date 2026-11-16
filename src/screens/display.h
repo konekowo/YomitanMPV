@@ -15,7 +15,7 @@ namespace YomitanMPV {
 
         void poll(const mpv_event *event);
 
-        void draw();
+        void draw(bool force_draw);
 
         void set_current_screen(const std::shared_ptr<Screen>& screen);
         std::shared_ptr<Screen> get_current_screen();

@@ -72,7 +72,7 @@ namespace YomitanMPV {
                 current_screen->set_width(width);
                 current_screen->set_height(height);
             }
-            draw();
+            draw(true);
         }
 
         if (current_screen) {
@@ -83,18 +83,21 @@ namespace YomitanMPV {
         last_height = height;
     }
 
-    void Display::draw() {
+    void Display::draw(bool force_draw) {
+        bool do_draw = force_draw;
+
         if (current_screen) {
             const auto osd_width = std::to_string(static_cast<int>(std::round(static_cast<float>(width) / scale)));
             const auto osd_height = std::to_string(static_cast<int>(std::round(static_cast<float>(height) / scale)));
 
             Clay_BeginLayout();
 
-            current_screen->layout();
+            do_draw |= current_screen->layout();
 
             const Clay_RenderCommandArray commands = Clay_EndLayout();
 
-
+            if (!do_draw)
+                return;
 
             std::string ass_events;
             std::stack<Clay_BoundingBox> clips;
@@ -244,9 +247,11 @@ namespace YomitanMPV {
                         break;
                 }
 
-                ass_events.append(ass_event);
-                if (i < commands.length - 1) {
-                    ass_events.append("\n");
+                if (!ass_event.empty()) {
+                    ass_events.append(ass_event);
+                    if (i < commands.length - 1) {
+                        ass_events.append("\n");
+                    }
                 }
             }
 
@@ -283,7 +288,7 @@ namespace YomitanMPV {
 
     void Display::set_current_screen(const std::shared_ptr<Screen>& screen) {
         if (current_screen) {
-            current_screen->set_draw_cb(nullptr);
+            current_screen->set_draw_cb(nullptr, nullptr);
             current_screen->destroy();
         }
 
@@ -291,14 +296,14 @@ namespace YomitanMPV {
 
         // screen supplied can be nullptr to clear display
         if (current_screen) {
-            current_screen->set_draw_cb([this] { draw(); });
+            current_screen->set_draw_cb([this] { draw(true); }, [this] { draw(false); });
             current_screen->set_scale(scale);
             current_screen->set_width(width);
             current_screen->set_height(height);
             current_screen->init();
         }
 
-        draw();
+        draw(true);
     }
 
     std::shared_ptr<Screen> Display::get_current_screen() {

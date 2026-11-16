@@ -239,6 +239,7 @@ namespace YomitanMPV {
             active.erase(it);
 
             request->response.curl_status = message->data.result;
+            request->response.curl_status_message = curl_easy_strerror(request->response.curl_status);
 
             curl_easy_getinfo(easy, CURLINFO_RESPONSE_CODE, &request->response.status_code);
 
@@ -249,7 +250,7 @@ namespace YomitanMPV {
                 logger->warn(
                 "HTTP request failed: {}, CURL={}, HTTP={}",
                     request->url,
-                    curl_easy_strerror(request->response.curl_status),
+                    request->response.curl_status_message,
                     request->response.status_code
                 );
             }

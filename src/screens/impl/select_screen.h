@@ -4,6 +4,7 @@
 #include "screens/display.h"
 #include "screens/screen.h"
 #include "util/config.h"
+#include "util/lookup.h"
 #include "util/util.h"
 
 namespace YomitanMPV {
@@ -19,7 +20,7 @@ namespace YomitanMPV {
         );
 
         void init() override;
-        void layout() override;
+        bool layout() override;
         void poll(const mpv_event *event) override;
         void destroy() override;
 
@@ -38,6 +39,12 @@ namespace YomitanMPV {
             static std::unique_ptr<TokenLines> from_json(const nlohmann::json& json);
         };
 
+        struct LookupRequest {
+            const Token* token;
+            std::future<Network::HttpResponse> request;
+            std::optional<std::variant<LookupResult, std::string>> response = std::nullopt;
+        };
+
         std::shared_ptr<Network> network;
         std::shared_ptr<Util> util;
         std::shared_ptr<Display> display;
@@ -46,13 +53,14 @@ namespace YomitanMPV {
         std::future<Network::HttpResponse> tokenize_request;
         bool tokenizing = false;
         std::unique_ptr<TokenLines> token_lines = nullptr;
+        const Token *last_hovered_token = nullptr;
 
         std::string help;
         std::shared_ptr<TextConfigExt> help_text_config_ext = std::make_shared<TextConfigExt>();
         std::string status;
         bool status_is_error = false;
 
-        std::optional<std::pair<const Token*, std::future<Network::HttpResponse>>> lookup_request = std::nullopt;
+        std::optional<LookupRequest> lookup_request = std::nullopt;
 
         void token_hovered(const Token &token);
     };

@@ -16,6 +16,7 @@ namespace YomitanMPV {
     public:
         struct HttpResponse {
             CURLcode curl_status = CURLE_OK;
+            std::string curl_status_message;
             long status_code = 0;
 
             std::string body;
