@@ -34,12 +34,12 @@ namespace YomitanMPV {
         return _body;
     }
 
-    curl_slist *Network::HttpRequest::headers() const {
+    const std::vector<std::string> &Network::HttpRequest::headers() const {
         return _headers;
     }
 
     Network::HttpRequest &Network::HttpRequest::header(const std::string& key, const std::string &value) {
-        _headers = curl_slist_append(_headers, (key + ": " + value).c_str());
+        _headers.push_back(key + ": " + value);
 
         return *this;
     }
@@ -83,7 +83,12 @@ namespace YomitanMPV {
         auto request = std::make_unique<Request>();
         request->url = http_request.url();
         request->method = http_request.method();
-        request->headers = http_request.headers();
+        for (const auto &header : http_request.headers()) {
+            curl_slist *headers = curl_slist_append(request->headers, header.c_str());
+            if (!headers)
+                throw std::bad_alloc();
+            request->headers = headers;
+        }
         request->body = http_request.body();
 
         auto future = request->promise.get_future();
@@ -96,6 +101,7 @@ namespace YomitanMPV {
             }
 
             pending.push(std::move(request));
+            ++request_count;
 
             curl_multi_wakeup(curl_multi);
         }
@@ -104,7 +110,7 @@ namespace YomitanMPV {
     }
 
     bool Network::is_active() const {
-        return !active.empty();
+        return request_count != 0;
     }
 
     size_t Network::writeCallback(
@@ -217,6 +223,7 @@ namespace YomitanMPV {
         }
 
         active.clear();
+        request_count = 0;
     }
 
     void Network::processCompleted() {
@@ -256,6 +263,7 @@ namespace YomitanMPV {
             }
 
             request->promise.set_value(std::move(request->response));
+            --request_count;
         }
     }
 
@@ -265,6 +273,7 @@ namespace YomitanMPV {
         if (!easy) {
             request->response.curl_status = CURLE_FAILED_INIT;
             request->promise.set_value(std::move(request->response));
+            --request_count;
             return;
         }
 
@@ -300,6 +309,7 @@ namespace YomitanMPV {
             curl_easy_cleanup(easy);
 
             request->promise.set_value(std::move(request->response));
+            --request_count;
             return;
         }
 

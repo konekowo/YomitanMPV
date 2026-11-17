@@ -19,10 +19,12 @@ namespace YomitanMPV {
         };
 
         if (mpv_command_ret(mpv_ctx, cmd, &result) >= 0) {
+            std::string path;
             if (result.format == MPV_FORMAT_STRING)
-                return result.u.string;
+                path = result.u.string;
 
             mpv_free_node_contents(&result);
+            return path;
         }
 
         return "";
@@ -124,30 +126,36 @@ namespace YomitanMPV {
     }
 
     void Util::keybind_event_poll(const mpv_event_client_message *message) {
+        if (message->num_args < 7)
+            return;
+
         const std::string keybind_name = std::string(message->args[1]).substr(std::string("keybind_").length());
 
-        std::string args[message->num_args - 2];
+        std::vector<std::string> args(message->num_args - 2);
 
         for (int i = 2; i < message->num_args; i++) {
             args[i - 2] = std::string(message->args[i]);
         }
 
         if (keybinds.find(keybind_name) != keybinds.end()) {
-            keybinds[keybind_name](args);
+            keybinds[keybind_name](args.data());
         }
     }
 
     void Util::lock_keybind_event_poll(const mpv_event_client_message *message) {
+        if (message->num_args < 7)
+            return;
+
         const std::string keybind_name = std::string(message->args[1]).substr(std::string("lock_keybind_").length());
 
-        std::string args[message->num_args - 2];
+        std::vector<std::string> args(message->num_args - 2);
 
         for (int i = 2; i < message->num_args; i++) {
             args[i - 2] = std::string(message->args[i]);
         }
 
         if (lock_keybind_callbacks.find(keybind_name) != lock_keybind_callbacks.end()) {
-            lock_keybind_callbacks[keybind_name](args);
+            lock_keybind_callbacks[keybind_name](args.data());
         }
     }
 

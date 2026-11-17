@@ -40,11 +40,12 @@ namespace YomitanMPV {
             network
         );
 
-        util->register_keybind(config->config.keybinds.select_mode, "select_mode", [this, select_screen](std::string args[]) {
+        util->register_keybind(config->config.keybinds.select_mode, "select_mode", [this, screen = std::weak_ptr<SelectScreen>(select_screen)](std::string args[]) {
             if (args[0][0] != 'd')
                 return;
 
-            display->set_current_screen(select_screen);
+            if (auto select_screen = screen.lock())
+                display->set_current_screen(select_screen);
         });
 
         while(true) {

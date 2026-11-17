@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <format>
+#include <new>
 #include <stack>
 
 #define CLAY_IMPLEMENTATION
@@ -39,10 +40,12 @@ namespace YomitanMPV {
         const uint32_t totalMemorySize = Clay_MinMemorySize();
 
         clayArenaMemory = malloc(totalMemorySize);
+        if (!clayArenaMemory)
+            throw std::bad_alloc();
 
         clayArena = Clay_CreateArenaWithCapacityAndMemory(totalMemorySize, clayArenaMemory);
 
-        Clay_Initialize(clayArena, { 800, 600 }, {
+        clayContext = Clay_Initialize(clayArena, { 800, 600 }, {
             .errorHandlerFunction = [](Clay_ErrorData errorText) {
                 static_cast<Display*>(errorText.userData)->handle_error(errorText.errorType, errorText.errorText);
             },
@@ -345,6 +348,10 @@ namespace YomitanMPV {
     }
 
     Display::~Display() {
+        if (current_screen)
+            current_screen->set_draw_cb(nullptr, nullptr);
+        if (Clay_GetCurrentContext() == clayContext)
+            Clay_SetCurrentContext(nullptr);
         free(clayArenaMemory);
     }
 }

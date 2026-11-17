@@ -1,8 +1,10 @@
 #pragma once
 
+#include <atomic>
 #include <future>
 #include <memory>
 #include <queue>
+#include <vector>
 #include <spdlog/logger.h>
 #include <curl/curl.h>
 
@@ -41,14 +43,14 @@ namespace YomitanMPV {
         protected:
             std::string _url;
             HttpMethod _method{GET};
-            curl_slist *_headers = nullptr;
+            std::vector<std::string> _headers;
             std::string _body;
         public:
             [[nodiscard]] std::string url() const;
             HttpRequest &url(const std::string &url);
             [[nodiscard]] HttpMethod method() const;
             HttpRequest &method(HttpMethod method);
-            [[nodiscard]] curl_slist *headers() const;
+            [[nodiscard]] const std::vector<std::string> &headers() const;
             HttpRequest &header(const std::string& key, const std::string &value);
             [[nodiscard]] std::string body() const;
             HttpRequest &body(const std::string& text);
@@ -65,11 +67,15 @@ namespace YomitanMPV {
         struct Request {
             std::string url;
             HttpMethod method;
-            curl_slist *headers;
+            curl_slist *headers = nullptr;
             std::string body;
 
             HttpResponse response;
             std::promise<HttpResponse> promise;
+
+            ~Request() {
+                curl_slist_free_all(headers);
+            }
         };
 
         void run();
@@ -90,6 +96,7 @@ namespace YomitanMPV {
         std::mutex mutex;
         std::queue<std::unique_ptr<Request>> pending;
         std::unordered_map<CURL*, std::unique_ptr<Request>> active;
+        std::atomic<size_t> request_count{0};
         bool stopping{false};
     };
 }

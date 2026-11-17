@@ -28,6 +28,7 @@ namespace YomitanMPV {
 
         void *clayArenaMemory;
         Clay_Arena clayArena;
+        Clay_Context *clayContext;
 
         int64_t last_width = 1920;
         int64_t last_height = 1080;

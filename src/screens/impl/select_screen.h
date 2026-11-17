@@ -47,7 +47,7 @@ namespace YomitanMPV {
 
         std::shared_ptr<Network> network;
         std::shared_ptr<Util> util;
-        std::shared_ptr<Display> display;
+        std::weak_ptr<Display> display;
         std::shared_ptr<Config> config;
 
         std::future<Network::HttpResponse> tokenize_request;

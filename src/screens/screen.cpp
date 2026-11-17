@@ -29,6 +29,11 @@ namespace YomitanMPV {
             if (mpv_get_property(mpv_ctx,"mouse-pos", MPV_FORMAT_NODE, &node) != MPV_ERROR_SUCCESS)
                 return;
 
+            if (node.format != MPV_FORMAT_NODE_MAP) {
+                mpv_free_node_contents(&node);
+                return;
+            }
+
             const mpv_node_list *map = node.u.list;
 
             for (int i = 0; i < map->num; i++) {
@@ -46,6 +51,8 @@ namespace YomitanMPV {
                     }
                 }
             }
+
+            mpv_free_node_contents(&node);
 
             const float clay_width = static_cast<float>(width) / scale;
             const float clay_height = static_cast<float>(height) / scale;

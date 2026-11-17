@@ -13,17 +13,19 @@ namespace YomitanMPV {
     )
         : Screen(mpv_ctx, logger, util), network(network), util(util), display(display), config(config)
     {
-        util->register_lock_keybind("select_mode_lock", config->config.keybinds.select_mode, "select_mode_end", [display](std::string args[]) {
+        util->register_lock_keybind("select_mode_lock", config->config.keybinds.select_mode, "select_mode_end", [display = this->display](std::string args[]) {
             if (args[0][0] != 'd')
                 return;
 
-            display->set_current_screen(nullptr);
+            if (auto current_display = display.lock())
+                current_display->set_current_screen(nullptr);
         });
-        util->register_lock_keybind("select_mode_lock", "ESC", "select_mode_end", [display](std::string args[]) {
+        util->register_lock_keybind("select_mode_lock", "ESC", "select_mode_end", [display = this->display](std::string args[]) {
             if (args[0][0] != 'd')
                 return;
 
-            display->set_current_screen(nullptr);
+            if (auto current_display = display.lock())
+                current_display->set_current_screen(nullptr);
         });
         util->register_lock_keybind("select_mode_lock", "F12", "select_mode_devtools", [this](std::string args[]) {
             if (args[0][0] != 'd')
@@ -49,6 +51,8 @@ namespace YomitanMPV {
         mpv_set_property(this->mpv_ctx, "pause", MPV_FORMAT_FLAG, &paused);
         util->set_subs_visible(false);
 
+        lookup_request = std::nullopt;
+        last_hovered_token = nullptr;
         token_lines = nullptr;
 
         const auto line = util->get_current_subtitle_line();
@@ -56,11 +60,11 @@ namespace YomitanMPV {
         if (line.empty()) {
             util->osd_show_text("There are no subtitles to select.", std::chrono::seconds(2));
 
-            display->set_current_screen(nullptr);
+            if (auto current_display = display.lock())
+                current_display->set_current_screen(nullptr);
             return;
         }
 
-        lookup_request = std::nullopt;
         tokenizing = true;
         status = "Tokenizing...";
         status_is_error = false;
@@ -202,6 +206,10 @@ namespace YomitanMPV {
                     }
                 }
             }
+            if (hovered_token) {
+                this->token_hovered(*hovered_token);
+            }
+
             if (lookup_request.has_value()) {
                 CLAY({
                     .id = CLAY_ID("LookupWindow"),
@@ -386,7 +394,7 @@ namespace YomitanMPV {
                                                                                 .textColor = sentence_fragment.key_word ?
                                                                                     Clay_Color{ .r = 0, .g = 119, .b = 255, .a = 255 } :
                                                                                     Clay_Color{ .r = 255, .g = 255, .b = 255, .a = 255 },
-                                                                                .fontSize = 24
+                                                                                .fontSize = 18
                                                                             })
                                                                         );
                                                                     }
@@ -472,10 +480,6 @@ namespace YomitanMPV {
                     }
                 }
             }
-        }
-
-        if (hovered_token) {
-            this->token_hovered(*hovered_token);
         }
 
         if (last_hovered_token != hovered_token) {
