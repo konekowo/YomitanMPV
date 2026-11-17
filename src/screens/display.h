@@ -1,6 +1,7 @@
 #pragma once
 #include <map>
 #include <memory>
+#include <string>
 #include <mpv/client.h>
 #include <spdlog/logger.h>
 
@@ -8,6 +9,8 @@
 #include "screen.h"
 
 namespace YomitanMPV {
+    class FontMeasure;
+
     class Display {
     public:
         Display(mpv_handle *mpv_ctx, const std::shared_ptr<spdlog::logger>& logger);
@@ -37,25 +40,14 @@ namespace YomitanMPV {
         std::shared_ptr<Screen> current_screen = nullptr;
 
         std::map<uint16_t, std::string> font_id_map;
+        std::string default_font = "sans-serif";
+
+        std::unique_ptr<FontMeasure> text_measurer;
 
         void handle_error(const Clay_ErrorType &errorType, const Clay_String &errorText) const;
 
         Clay_Dimensions measure_text(const Clay_StringSlice &text, Clay_TextElementConfig *config) const;
 
-        struct MPVBounds {
-            double x0;
-            double y0;
-            double x1;
-            double y1;
-
-            [[nodiscard]] double width() const {
-                return x1 - x0;
-            }
-            [[nodiscard]] double height() const {
-                return y1 - y0;
-            }
-        };
-
-        MPVBounds get_bounds(const std::string &ass_event) const;
+        const std::string &font_family(uint16_t font_id) const;
     };
 }

@@ -1,12 +1,16 @@
 #include "display.h"
+#include "util/font_measure.h"
 
-#define CLAY_IMPLEMENTATION
+#include <algorithm>
+#include <cmath>
+#include <cstdlib>
+#include <format>
 #include <stack>
 
+#define CLAY_IMPLEMENTATION
 #include "clay.h"
 
 const auto UI_LAYER_ID = std::to_string(12329);
-const auto  UI_MEASURE_LAYER_ID = std::to_string(12330);
 
 constexpr float BASE_HEIGHT = 1080.0f;
 
@@ -26,8 +30,12 @@ static std::string alpha_to_ass_hex(const float a) {
 
 namespace YomitanMPV {
     Display::Display(mpv_handle *mpv_ctx, const std::shared_ptr<spdlog::logger> &logger)
-        : mpv_ctx(mpv_ctx), logger(logger)
+        : mpv_ctx(mpv_ctx), logger(logger), text_measurer(std::make_unique<FontMeasure>(logger))
     {
+        if (char *font = mpv_get_property_string(mpv_ctx, "osd-font")) {
+            if (*font) default_font = font;
+            mpv_free(font);
+        }
         const uint32_t totalMemorySize = Clay_MinMemorySize();
 
         clayArenaMemory = malloc(totalMemorySize);
@@ -49,11 +57,13 @@ namespace YomitanMPV {
 
         mpv_observe_property(mpv_ctx, 0, "osd-width", MPV_FORMAT_INT64);
         mpv_observe_property(mpv_ctx, 0, "osd-height", MPV_FORMAT_INT64);
+        mpv_observe_property(mpv_ctx, 0, "osd-font", MPV_FORMAT_STRING);
 
         Clay_SetPointerState({ .x = 0, .y = 0 }, false);
     }
 
     void Display::poll(const mpv_event *event) {
+        bool font_changed = false;
         if (event->event_id == MPV_EVENT_PROPERTY_CHANGE) {
             const auto *prop = static_cast<mpv_event_property *>(event->data);
             if (std::string(prop->name) == "osd-width" && prop->format == MPV_FORMAT_INT64 && prop->data) {
@@ -63,10 +73,20 @@ namespace YomitanMPV {
                 scale = static_cast<float>(height) / BASE_HEIGHT;
                 if (current_screen)
                     current_screen->set_scale(scale);
+            } else if (std::string(prop->name) == "osd-font") {
+                const char *font = prop->format == MPV_FORMAT_STRING && prop->data
+                    ? *static_cast<char **>(prop->data) : nullptr;
+                const std::string family = font && *font ? font : "sans-serif";
+                if (family != default_font) {
+                    default_font = family;
+                    text_measurer->clear_cache();
+                    Clay_ResetMeasureTextCache();
+                    font_changed = true;
+                }
             }
         }
 
-        if (last_width != width || last_height != height) {
+        if (last_width != width || last_height != height || font_changed) {
             Clay_SetLayoutDimensions({ .width = static_cast<float>(width) / scale, .height = static_cast<float>(height) / scale });
             if (current_screen) {
                 current_screen->set_width(width);
@@ -204,11 +224,7 @@ namespace YomitanMPV {
                         ass_event.append("\\pos(").append(std::to_string(bounding_box.x)).append(",").append(std::to_string(bounding_box.y)).append(")");
                         ass_event.append("\\fs").append(std::to_string(data.fontSize));
 
-                        if (const auto entry = font_id_map.find(data.fontId); entry != font_id_map.end()) {
-                            ass_event.append("\\fn").append(entry->second);
-                        } else if (data.fontId != 0) {
-                            logger->warn("[Display] Invalid font id: {}", data.fontId);
-                        }
+                        ass_event.append("\\fn").append(text_measurer->render_font_name(font_family(data.fontId)));
 
                         ass_event.append("\\fsp").append(std::to_string(data.letterSpacing));
 
@@ -311,114 +327,17 @@ namespace YomitanMPV {
     }
 
     Clay_Dimensions Display::measure_text(const Clay_StringSlice &text, Clay_TextElementConfig *config) const {
-        const auto str = std::string(text.chars, text.length);
-
-        std::string ass_event_styling = "{";
-        ass_event_styling.append("\\an7");
-        ass_event_styling.append("\\pos(0,0)");
-        ass_event_styling.append("\\fs").append(std::to_string(config->fontSize));
-
-        if (const auto entry = font_id_map.find(config->fontId); entry != font_id_map.end()) {
-            ass_event_styling.append("\\fn").append(entry->second);
-        } else if (config->fontId != 0) {
-            logger->warn("[Display] Invalid font id: {}", config->fontId);
-        }
-
-        ass_event_styling.append("\\fsp").append(std::to_string(config->letterSpacing));
-
-        ass_event_styling.append("\\bord0");
-        ass_event_styling.append("\\shad0");
-
-        switch(config->wrapMode) {
-            case CLAY_TEXT_WRAP_WORDS:
-                ass_event_styling.append("\\q0");
-                break;
-            case CLAY_TEXT_WRAP_NEWLINES:
-                ass_event_styling.append("\\q1");
-                break;
-            case CLAY_TEXT_WRAP_NONE:
-                ass_event_styling.append("\\q2");
-                break;
-        }
-
-        ass_event_styling.append("}");
-
-        // measure with markers hack from https://github.com/BrenoAqua/Yomipv/blob/main/scripts/yomipv/interface/selector/renderer.lua#L34
-
-        const std::string ass_event_text_with_markers = ass_event_styling + "|" + str + "|";
-        const std::string ass_event_markers = ass_event_styling + "||";
-
-        const auto bounds_text_with_markers = get_bounds(ass_event_text_with_markers);
-        const auto bounds_markers = get_bounds(ass_event_markers);
-
-        return {
-            .width = static_cast<float>(std::max(0.0, bounds_text_with_markers.width() - bounds_markers.width())),
-            .height = static_cast<float>(bounds_text_with_markers.height())
-        };
+        if (!config)
+            return {};
+        return text_measurer->measure(text, *config, font_family(config->fontId));
     }
 
-    Display::MPVBounds Display::get_bounds(const std::string &ass_event) const {
-        const auto osd_width = std::to_string(static_cast<int>(std::round(static_cast<float>(width) / scale)));
-        const auto osd_height = std::to_string(static_cast<int>(std::round(static_cast<float>(height) / scale)));
-
-        const char *cmd[] = {
-            "osd-overlay",
-            UI_MEASURE_LAYER_ID.c_str(),
-            "ass-events",
-            ass_event.c_str(),
-            osd_width.c_str(),
-            osd_height.c_str(),
-            "0", // z
-            "yes", // hidden
-            "yes", // compute_bounds
-            nullptr
-        };
-
-        mpv_node result{};
-        MPVBounds bounds{};
-
-        if (mpv_command_ret(mpv_ctx, cmd, &result) != MPV_ERROR_SUCCESS) {
-            return {
-                .x0 = 0,
-                .y0 = 0,
-                .x1 = 0,
-                .y1 = 0
-            };
-        }
-
-        if (result.format == MPV_FORMAT_NODE_MAP) {
-            for (int i = 0; i < result.u.list->num; ++i) {
-                double* target = nullptr;
-
-                if (!strcmp(result.u.list->keys[i], "x0")) target = &bounds.x0;
-                else if (!strcmp(result.u.list->keys[i], "y0")) target = &bounds.y0;
-                else if (!strcmp(result.u.list->keys[i], "x1")) target = &bounds.x1;
-                else if (!strcmp(result.u.list->keys[i], "y1")) target = &bounds.y1;
-
-                if (!target)
-                    continue;
-
-                if (result.u.list->values[i].format == MPV_FORMAT_DOUBLE) {
-                    *target = result.u.list->values[i].u.double_;
-                } else if (result.u.list->values[i].format == MPV_FORMAT_INT64) {
-                    *target = static_cast<double>(result.u.list->values[i].u.int64);
-                }
-            }
-        }
-
-        mpv_free_node_contents(&result);
-
-        const char *cmd_clear[] = {
-            "osd-overlay",
-            UI_MEASURE_LAYER_ID.c_str(),
-            "none",
-            "",
-            nullptr
-        };
-
-        mpv_command(mpv_ctx, cmd_clear);
-
-        return bounds;
+    const std::string &Display::font_family(uint16_t font_id) const {
+        if (const auto entry = font_id_map.find(font_id); entry != font_id_map.end() && !entry->second.empty())
+            return entry->second;
+        if (font_id != 0)
+            logger->warn("[Display] Invalid font id: {}", font_id);
+        return default_font;
     }
 
     void Display::handle_error(const Clay_ErrorType &errorType, const Clay_String &errorText) const {

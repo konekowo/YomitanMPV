@@ -17,6 +17,9 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(MPV REQUIRED mpv)
 find_package(spdlog REQUIRED)
 find_package(CURL REQUIRED)
+find_package(Freetype REQUIRED)
+find_package(harfbuzz CONFIG REQUIRED)
+
 pkg_check_modules(AVCODEC REQUIRED IMPORTED_TARGET libavcodec)
 pkg_check_modules(AVFORMAT REQUIRED IMPORTED_TARGET libavformat)
 pkg_check_modules(AVUTIL REQUIRED IMPORTED_TARGET libavutil)
@@ -38,6 +41,8 @@ add_library(YomitanMPV SHARED
         src/util/util.h
         src/util/config.cpp
         src/util/config.h
+        src/util/font_measure.cpp
+        src/util/font_measure.h
         src/network/network.cpp
         src/network/network.h
         src/screens/clay.h
@@ -59,15 +64,27 @@ target_include_directories(YomitanMPV PRIVATE
 )
 
 if(APPLE)
+    find_library(CORETEXT_FRAMEWORK CoreText REQUIRED)
+    find_library(COREFOUNDATION_FRAMEWORK CoreFoundation REQUIRED)
+    set(FONT_MEASURE_PLATFORM_LIBRARIES ${CORETEXT_FRAMEWORK} ${COREFOUNDATION_FRAMEWORK})
     target_link_options(YomitanMPV PRIVATE
             "-Wl,-undefined,dynamic_lookup"
     )
+elseif(WIN32)
+    set(FONT_MEASURE_PLATFORM_LIBRARIES dwrite)
+else()
+    # Fontconfig is also the fallback for otherwise unrecognized platforms.
+    pkg_check_modules(FONTCONFIG REQUIRED IMPORTED_TARGET fontconfig)
+    set(FONT_MEASURE_PLATFORM_LIBRARIES PkgConfig::FONTCONFIG)
 endif()
 
 target_link_libraries(YomitanMPV PRIVATE
         spdlog::spdlog
         CURL::libcurl
         nlohmann_json::nlohmann_json
+        Freetype::Freetype
+        harfbuzz::harfbuzz
+        ${FONT_MEASURE_PLATFORM_LIBRARIES}
         PkgConfig::AVCODEC
         PkgConfig::AVFORMAT
         PkgConfig::AVUTIL
